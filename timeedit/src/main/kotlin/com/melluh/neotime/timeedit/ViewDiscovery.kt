@@ -63,6 +63,12 @@ class ViewDiscovery(private val client: TimeEditClient) {
         return links.mapNotNull { (path, label) -> parseViewPage(area, label, client.page(area, path)) }
     }
 
+    /** Finds the room booking page among the student links; null when the account has none. */
+    suspend fun discoverBooking(): BookingView? =
+        landingLinks(client.landing(Area.STUDENT)).firstNotNullOfOrNull { (path, _) ->
+            parseBookingPage(client.page(Area.STUDENT, path))
+        }
+
     companion object {
         private val SCHEDULE_LINK = Regex("""/web/(?:public|student)/(ri[0-9A-Za-z]+\.html)$""")
         private val DATE = DateTimeFormatter.BASIC_ISO_DATE
@@ -73,6 +79,20 @@ class ViewDiscovery(private val client: TimeEditClient) {
                 val page = SCHEDULE_LINK.find(a.attr("href"))?.groupValues?.get(1) ?: return@mapNotNull null
                 page to a.select("h2").text().ifEmpty { a.text() }.trim()
             }.distinctBy { it.first }
+
+        /** Reads sid, buildings and booking window from a booking page; null for other pages. */
+        internal fun parseBookingPage(html: String): BookingView? {
+            val doc = Jsoup.parse(html)
+            if (doc.getElementById("reserveformedit") == null) return null
+            val data = doc.getElementById("linksdata") ?: return null
+            val sid = data.attr("data-sid").toIntOrNull() ?: return null
+            val start = data.attr("data-startLimit").takeIf { it.length == 8 } ?: return null
+            val end = data.attr("data-endLimit").takeIf { it.length == 8 } ?: return null
+            val buildings = doc.select("select[name=4x_20] option").map { it.attr("value") }.filter { it != "__a__" }
+            if (buildings.isEmpty()) return null
+            val days = ChronoUnit.DAYS.between(LocalDate.parse(start, DATE), LocalDate.parse(end, DATE)).toInt()
+            return BookingView(sid, buildings, days)
+        }
 
         /** Reads sid, date range and searchable types from a view page; null for non-schedule pages. */
         internal fun parseViewPage(area: Area, label: String, html: String): ScheduleView? {

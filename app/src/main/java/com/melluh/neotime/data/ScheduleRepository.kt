@@ -140,7 +140,7 @@ class ScheduleRepository(
     }
 
     /** View ids change yearly, so they're discovered and cached for a week. */
-    private suspend fun views(area: Area): Views {
+    suspend fun views(area: Area): Views {
         val prefs = dataStore.data.first()
         val key = if (area == Area.PUBLIC) VIEWS_PUBLIC else VIEWS_STUDENT
         val fetchedKey = if (area == Area.PUBLIC) VIEWS_PUBLIC_AT else VIEWS_STUDENT_AT

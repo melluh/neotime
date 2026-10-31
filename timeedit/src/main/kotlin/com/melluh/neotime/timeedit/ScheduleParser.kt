@@ -97,6 +97,25 @@ object ScheduleParser {
     /** TimeEdit pads names with runs of spaces, e.g. "F.J.   Castor de Lima Filho". */
     internal fun clean(value: String): String = value.replace(Regex("""\s+"""), " ").trim()
 
-    private fun splitList(value: String?): List<String> =
-        value?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+    /** Splits on commas, except inside parentheses: halls can be "VR 275C (7p, Library)". */
+    internal fun splitList(value: String?): List<String> {
+        if (value == null) return emptyList()
+        val parts = mutableListOf<String>()
+        val current = StringBuilder()
+        var depth = 0
+        for (c in value) {
+            when (c) {
+                '(' -> depth++
+                ')' -> depth = maxOf(0, depth - 1)
+            }
+            if (c == ',' && depth == 0) {
+                parts += current.toString()
+                current.clear()
+            } else {
+                current.append(c)
+            }
+        }
+        parts += current.toString()
+        return parts.map { it.trim() }.filter { it.isNotEmpty() }
+    }
 }

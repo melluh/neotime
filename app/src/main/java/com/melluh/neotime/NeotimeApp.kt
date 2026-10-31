@@ -11,16 +11,17 @@ import com.melluh.neotime.auth.SessionManager
 import com.melluh.neotime.auth.SessionStore
 import com.melluh.neotime.auth.WebViewCookieJar
 import com.melluh.neotime.data.LecturerRepository
+import com.melluh.neotime.data.RoomRepository
 import com.melluh.neotime.data.ScheduleRepository
 import com.melluh.neotime.timeedit.PeopleDirectory
 import com.melluh.neotime.timeedit.TimeEditClient
+import java.io.File
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import okhttp3.CookieJar
 import okhttp3.OkHttpClient
-import java.io.File
-import java.util.concurrent.TimeUnit
 
 private val Context.settings by preferencesDataStore(name = "settings")
 private val Context.session by preferencesDataStore(name = "session")
@@ -42,6 +43,7 @@ class AppContainer(app: Application) {
     val session = SessionManager(app, client, SessionStore(app.session))
     val schedule = ScheduleRepository(client, session, app.settings, File(app.filesDir, "schedule.json"))
     val lecturers = LecturerRepository(PeopleDirectory(anonymousHttp), File(app.filesDir, "lecturers.json"))
+    val rooms = RoomRepository(client, session, schedule, app.settings)
 }
 
 class NeotimeApp : Application(), SingletonImageLoader.Factory {

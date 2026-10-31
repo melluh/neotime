@@ -89,6 +89,43 @@ class TimeEditClient(
             .distinctBy { it.id }
 
     /**
+     * Lists the bookable project rooms in [building]. The server cuts unfiltered searches off at
+     * 100 results (there are more project rooms than that), so the building filter is required.
+     */
+    suspend fun rooms(sid: Int, building: String): List<Room> {
+        val url = url(Area.STUDENT, "objects.json")
+            .addQueryParameter("max", "100")
+            .addQueryParameter("fr", "f")
+            .addQueryParameter("part", "t")
+            .addQueryParameter("partajax", "t")
+            .addQueryParameter("im", "f")
+            .addQueryParameter("step", "1")
+            .addQueryParameter("sid", sid.toString())
+            .addQueryParameter("types", ObjectType.ROOM.id.toString())
+            .addQueryParameter("subtypes", ObjectType.ROOM.id.toString())
+            .addQueryParameter("fe", "20.$building")
+            .addEncodedQueryParameter("fe", PROJECT_ROOMS_FILTER)
+            .build()
+        return parseRooms(get(url), building)
+    }
+
+    internal fun parseRooms(body: String, building: String): List<Room> {
+        val raw = json.decodeFromString<RawObjects>(body)
+        if (raw.hasMore) throw TimeEditException("Too many rooms in $building")
+        return raw.objects.map { o ->
+            fun field(vararg names: String) =
+                names.firstNotNullOfOrNull { o.fields[it]?.jsonPrimitive?.content }?.trim()?.ifEmpty { null }
+            Room(
+                id = o.idAndType,
+                name = field("Description", "Beschrijving", "Name", "Naam") ?: o.idAndType,
+                capacity = field("Capacity", "Capaciteit")?.toIntOrNull(),
+                building = building,
+                type = field("Type"),
+            )
+        }.sortedBy { it.name }
+    }
+
+    /**
      * Creates a viewer session from a TimeEdit auth token (the JWT from the te_auth_token cookie),
      * the same handoff TimeEdit's own page does after login.
      */
@@ -113,6 +150,9 @@ class TimeEditClient(
         const val USER_AGENT = "Mozilla/5.0 (Linux; Android) neotime"
         private val PERIOD = DateTimeFormatter.BASIC_ISO_DATE
 
+        /** Double-encoded on purpose, like TimeEdit's own page sends it. */
+        private const val PROJECT_ROOMS_FILTER = "74.Project,Project%2520Open"
+
         /** TimeEdit answers a missing session with HTTP 412/401 and its TE Auth login page. */
         fun isLoginGate(code: Int, body: String): Boolean =
             code == 412 || code == 401 || body.contains("AUTH_TOKEN_NAME")
@@ -120,7 +160,7 @@ class TimeEditClient(
 }
 
 @Serializable
-internal data class RawObjects(val objects: List<RawObject> = emptyList())
+internal data class RawObjects(val objects: List<RawObject> = emptyList(), val hasMore: Boolean = false)
 
 @Serializable
 internal data class RawObject(val idAndType: String, val fields: JsonObject = JsonObject(emptyMap()))

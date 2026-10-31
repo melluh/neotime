@@ -8,6 +8,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -17,6 +19,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -24,6 +28,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -46,6 +54,7 @@ import com.melluh.neotime.auth.SessionState
 import com.melluh.neotime.timeedit.Account
 import com.melluh.neotime.ui.login.LoginScreen
 import com.melluh.neotime.ui.picker.PickerScreen
+import com.melluh.neotime.ui.rooms.RoomsScreen
 import com.melluh.neotime.ui.schedule.ScheduleScreen
 import com.melluh.neotime.ui.settings.SettingsScreen
 import kotlinx.coroutines.delay
@@ -69,32 +78,79 @@ fun NeotimeRoot(container: AppContainer) {
     val openLogin = { nav.navigate("login") { launchSingleTop = true } }
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
 
-    Box(Modifier.fillMaxSize()) {
-        NavHost(nav, startDestination = "schedule") {
-            composable("schedule") {
-                ScheduleScreen(
-                    container = container,
-                    onOpenPicker = { nav.navigate("picker") },
-                    onOpenSettings = { nav.navigate("settings") },
+    val onTab = route == "schedule" || route == "rooms"
+
+    Scaffold(
+        bottomBar = {
+            if (onTab) {
+                NavigationBar {
+                    NavigationBarItem(
+                        selected = route == "schedule",
+                        onClick = {
+                            nav.navigate("schedule") {
+                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        icon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
+                        label = { Text("Schedule") },
+                    )
+                    NavigationBarItem(
+                        selected = route == "rooms",
+                        onClick = {
+                            nav.navigate("rooms") {
+                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        icon = { Icon(Icons.Filled.Place, contentDescription = null) },
+                        label = { Text("Rooms") },
+                    )
+                }
+            }
+        },
+        contentWindowInsets = WindowInsets(0),
+    ) { padding ->
+        Box(Modifier.fillMaxSize()) {
+            NavHost(
+                nav,
+                startDestination = "schedule",
+                modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+            ) {
+                composable("schedule") {
+                    ScheduleScreen(
+                        container = container,
+                        onOpenPicker = { nav.navigate("picker") },
+                        onOpenSettings = { nav.navigate("settings") },
+                    )
+                }
+                composable("rooms") {
+                    RoomsScreen(
+                        container = container,
+                        onOpenSettings = { nav.navigate("settings") },
+                        onLogin = openLogin,
+                    )
+                }
+                composable("picker") { PickerScreen(container, onBack = { nav.popBackStack() }) }
+                composable("settings") { SettingsScreen(container, onBack = { nav.popBackStack() }, onLogin = openLogin) }
+                composable("login") { LoginScreen(container, onDone = { nav.popBackStack() }) }
+            }
+            if (route != "login") {
+                SessionBanner(
+                    state = session,
+                    notice = notice,
+                    dismissed = dismissed,
+                    onLogin = openLogin,
+                    onDismiss = { dismissed = true },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .then(if (onTab) Modifier.padding(padding) else Modifier.navigationBarsPadding())
+                        .padding(16.dp)
+                        .widthIn(max = 560.dp),
                 )
             }
-            composable("picker") { PickerScreen(container, onBack = { nav.popBackStack() }) }
-            composable("settings") { SettingsScreen(container, onBack = { nav.popBackStack() }, onLogin = openLogin) }
-            composable("login") { LoginScreen(container, onDone = { nav.popBackStack() }) }
-        }
-        if (route != "login") {
-            SessionBanner(
-                state = session,
-                notice = notice,
-                dismissed = dismissed,
-                onLogin = openLogin,
-                onDismiss = { dismissed = true },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(16.dp)
-                    .widthIn(max = 560.dp),
-            )
         }
     }
 }
