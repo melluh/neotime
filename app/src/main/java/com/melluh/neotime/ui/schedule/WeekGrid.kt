@@ -37,6 +37,7 @@ import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.ceil
 
 private val HOUR_HEIGHT = 56.dp
 private val TIME_COLUMN = 36.dp
@@ -75,29 +76,33 @@ fun WeekGrid(monday: LocalDate, events: List<Event>, onEventClick: (Event) -> Un
             }
         }
         HorizontalDivider()
-        Row(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            Column(Modifier.width(TIME_COLUMN)) {
-                for (hour in firstHour until lastHour) {
-                    Box(Modifier.height(HOUR_HEIGHT)) {
-                        Text(
-                            "%02d".format(hour),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 8.dp, top = 2.dp),
-                        )
+        // Measured outside the scroller: extra hour rows fill whatever height the events don't need
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val gridHeight = maxOf(HOUR_HEIGHT * (lastHour - firstHour), maxHeight)
+            val hours = ceil(gridHeight / HOUR_HEIGHT).toInt().coerceAtMost(24 - firstHour)
+            Row(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                Column(Modifier.width(TIME_COLUMN).height(gridHeight)) {
+                    for (hour in firstHour until firstHour + hours) {
+                        Box(Modifier.height(HOUR_HEIGHT)) {
+                            Text(
+                                "%02d".format(hour),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 8.dp, top = 2.dp),
+                            )
+                        }
                     }
                 }
-            }
-            val gridHeight = HOUR_HEIGHT * (lastHour - firstHour)
-            for (day in days) {
-                DayColumn(
-                    events = events.filter { it.date == day },
-                    firstHour = firstHour,
-                    height = gridHeight,
-                    hours = lastHour - firstHour,
-                    onEventClick = onEventClick,
-                    modifier = Modifier.weight(1f),
-                )
+                for (day in days) {
+                    DayColumn(
+                        events = events.filter { it.date == day },
+                        firstHour = firstHour,
+                        height = gridHeight,
+                        hours = hours,
+                        onEventClick = onEventClick,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
     }
