@@ -1,0 +1,2464 @@
+<!DOCTYPE html>
+  <html lang="nl">
+  <head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="application-name" content="TimeEdit"/> 
+<meta name="msapplication-TileColor" content="#00824c"/> 
+<meta name="msapplication-TileImage" content="/static/9.71.1_1341/iepinned.png"/>
+<link rel="icon" type="image/png" href="/static/9.71.1_1341/iepinned.png"/>
+<meta name="theme-color" content="#00824c"/><title>University of Twente </title>
+<link rel="stylesheet" href="/static/9.71.1_1341/css/min.css" type="text/css">
+
+
+
+<style type="text/css">
+   #weekContainer, .text {
+      font-size:14px;
+   }
+   
+   .tBottom {
+     position: absolute;
+     top: 0;
+     right: 0;
+     margin: 0 !important;
+   }
+
+   .dateLimitUsed {
+     margin-left: 1em;
+   }
+ 
+    .weekDay { 
+       width: 20.0%;
+    }
+  
+  
+  .weekDayHeader { 
+    position: sticky;
+    top: 0;
+    z-index: 809;
+    border: 1px solid #B0B0B0;;
+    background-color: #FFF;
+    color: #595959; 
+    padding-bottom: 3px; 
+    padding-top: 3px; 
+    overflow: hidden;
+    white-space: nowrap;
+    
+    
+  }
+  
+
+  .weekDayHeaderFirst {
+    
+    text-align: center;
+  }
+
+.weekDiv {
+    text-align: left;
+    position: relative;
+    border: 1px solid #B0B0B0;;
+    border-top: 0;
+    vertical-align: bottom;
+    *float:left;
+      background-color: white;
+    
+}
+
+.slotfree, .slotfree2 {
+   width: 100%;
+   position: absolute;
+   top: 0;
+   left: 0;
+}
+
+.slotfreetarget {
+   cursor: pointer;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   color: transparent;
+   font-size: 12px;
+}
+
+.slotfreetarget:focus {
+  color: #555;
+}
+
+.zoomedIn .slotfreetarget:focus::after {
+   content: 'Reserveren';
+   color: #555;
+   background-image: url('/static/9.71.1_1341/linkg.svg');
+   background-position: right center;
+   background-size: 12px;
+   background-repeat: no-repeat;
+   padding-right: 16px;
+   padding-left: 4px;
+}
+
+.weekDivGrey {
+   background-color: #CCCCCC;
+}
+
+
+.grouptitle {
+    background-color: #f3f3f3;
+    display: flex;
+    flex-direction: column;
+}
+
+.groupbox {
+    margin: auto;
+    text-align: center;
+    color: #0F1818;
+    font-size: 16px;
+}
+    .groupbox {
+       margin: auto 8px;
+       overflow: hidden;
+    }
+  
+
+.weekDivFirst {
+    width: 32px;
+    background-color: white;
+    overflow: hidden;
+}
+
+.hourlist {
+    z-index: -900;
+    position: absolute;
+    left: -32px;
+}
+
+.weekContainer {
+    page-break-after: always;
+    page-break-inside: avoid;
+    padding-left:32px;
+    clear: both;
+}
+    
+.hour {
+    text-align: center;
+    vertical-align: top;
+    border-top: 1px solid #B0B0B0;
+    overflow: hidden;
+    padding-top: 3px;
+    height: 60px;
+    box-sizing: border-box;  
+}
+
+.hourLine {
+   border-top: 1px solid #CCC;
+}
+
+.hourFirst {
+    border-top: 0;
+}
+
+.hourLast {
+    height: 55px;  
+}
+
+
+.weekHourLine {
+  position: relative;
+  
+}
+
+.bookingDiv {
+    background-color: #6CAFB6;
+    border: 1px solid #156F79;
+    border-right: 1px solid #555;
+    border-bottom: 1px solid #555;
+    
+    font-size:12px;
+    padding-top: 6px;
+    -moz-box-sizing: border-box; 
+    -webkit-box-sizing: border-box; 
+    box-sizing: border-box;
+}
+.bgDiv {
+    opacity: 0.6;
+}
+  .bookingDiv { background-color: #6CAFB6; background: rgba(108,175,182,0.95) !important; }
+
+.cA { background: rgba(192,252,255,0.95) !important; border-color: #4F8081; }
+
+.bookingDiv {
+ text-align: center;
+ padding-left: 1px;
+ padding-right: 1px;
+}
+
+.col0 {
+  font-weight: bold;
+}
+
+
+
+
+
+  .occupiedBefore { border-top: 3px dotted #000000 !important; }
+  .occupiedAfter { border-bottom: 3px dotted #000000 !important; }
+
+.weeks { font-weight: bold; font-size:13px; }
+
+.headerFirst { font-size: 12px; }
+
+
+
+ .chwrap { word-break: normal; }
+.c-55 { background: rgba(255,215,207,0.95) !important; border-color: #FFD7CF; border-left-color: #FFD7CF !important; border-right-color: #FFD7CF !important;  }
+.c-70 { background: #B2B4B4 !important;}
+
+
+.c116, .c117, .c118, .c119, .c120, .c121, .c122, .c123, .c124, .c125, .c126, .c127, .c128, .c129, .c130, .c131, .c132, .c133, .c134, .c135, .c136, .c137, .c138, .c139, .c140, .c141, .c142, .c143, .c144, .c145, .c146, .c147, .c148, .c149, .c150,  .c117
+{ background-color: #D2D4D4 !important; background: rgba(210,212,212,0.95) !important;  border-color:#717676 !important; }
+.c0 { background-color: rgba(210,212,212,0.95) !important; background: rgba(210,212,212,0.95) !important; border-color: #717676 !important; }
+.c1 { background-color: rgba(172,218,148,0.95) !important; background: rgba(172,218,148,0.95) !important; border-color: #598541 !important; }
+.c2 { background-color: rgba(255,254,231,0.95) !important; background: rgba(255,254,231,0.95) !important; border-color: #C4B311 !important; }
+.c3 { background-color: rgba(147,185,238,0.95) !important; background: rgba(147,185,238,0.95) !important; border-color: #4D74AC !important; }
+.c4 { background-color: rgba(216,205,225,0.95) !important; background: rgba(216,205,225,0.95) !important; border-color: #9572B1 !important; }
+.c5 { background-color: rgba(199,235,224,0.95) !important; background: rgba(199,235,224,0.95) !important; border-color: #41B190 !important; }
+.c6 { background-color: rgba(246,180,81,0.95) !important; background: rgba(246,180,81,0.95) !important; border-color: #CA7A03 !important; }
+.c7 { background-color: rgba(249,152,131,0.95) !important; background: rgba(249,152,131,0.95) !important; border-color: #E35435 !important; }
+.c8 { background-color: rgba(170,216,232,0.95) !important; background: rgba(170,216,232,0.95) !important; border-color: #4A8DA4 !important; }
+.c9 { background-color: rgba(255,234,150,0.95) !important; background: rgba(255,234,150,0.95) !important; border-color: #D0A900 !important; }
+.c10 { background-color: rgba(250,214,222,0.95) !important; background: rgba(250,214,222,0.95) !important; border-color: #D76D85 !important; }
+.c11 { background-color: rgba(216,231,53,0.95) !important; background: rgba(216,231,53,0.95) !important; border-color: #99A700 !important; }
+.c12 { background-color: rgba(171,167,125,0.95) !important; background: rgba(171,167,125,0.95) !important; border-color: #68633C !important; }
+.c13 { background-color: rgba(200,112,112,0.95) !important; background: rgba(200,112,112,0.95) !important; border-color: #8C3535 !important; }
+.c14 { background-color: rgba(201,255,146,0.95) !important; background: rgba(201,255,146,0.95) !important; border-color: #66B514 !important; }
+.c15 { background-color: rgba(230,181,219,0.95) !important; background: rgba(230,181,219,0.95) !important; border-color: #BF65AB !important; }
+.c16 { background-color: rgba(219,192,163,0.95) !important; background: rgba(219,192,163,0.95) !important; border-color: #AE875E !important; }
+.c17, .c101 { background-color: rgba(172,218,148,0.95) !important; background: rgba(172,218,148,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #598541 !important; }
+.c18, .c102 { background-color: rgba(255,254,231,0.95) !important; background: rgba(255,254,231,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #C4B311 !important; }
+.c19, .c103 { background-color: rgba(147,185,238,0.95) !important; background: rgba(147,185,238,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #4D74AC !important; }
+.c20, .c104 { background-color: rgba(216,205,225,0.95) !important; background: rgba(216,205,225,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #9572B1 !important; }
+.c21, .c105 { background-color: rgba(199,235,224,0.95) !important; background: rgba(199,235,224,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #41B190 !important; }
+.c22, .c106 { background-color: rgba(246,180,81,0.95) !important; background: rgba(246,180,81,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #CA7A03 !important; }
+.c23, .c107 { background-color: rgba(249,152,131,0.95) !important; background: rgba(249,152,131,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #E35435 !important; }
+.c24, .c108 { background-color: rgba(170,216,232,0.95) !important; background: rgba(170,216,232,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #4A8DA4 !important; }
+.c25, .c109 { background-color: rgba(255,234,150,0.95) !important; background: rgba(255,234,150,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #D0A900 !important; }
+.c26, .c110 { background-color: rgba(250,214,222,0.95) !important; background: rgba(250,214,222,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #D76D85 !important; }
+.c27, .c111 { background-color: rgba(216,231,53,0.95) !important; background: rgba(216,231,53,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #99A700 !important; }
+.c28, .c112 { background-color: rgba(171,167,125,0.95) !important; background: rgba(171,167,125,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #68633C !important; }
+.c29, .c113 { background-color: rgba(200,112,112,0.95) !important; background: rgba(200,112,112,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #8C3535 !important; }
+.c30, .c114 { background-color: rgba(201,255,146,0.95) !important; background: rgba(201,255,146,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #66B514 !important; }
+.c31, .c115 { background-color: rgba(230,181,219,0.95) !important; background: rgba(230,181,219,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #BF65AB !important; }
+.c32, .c116 { background-color: rgba(219,192,163,0.95) !important; background: rgba(219,192,163,0.95) repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px) !important; border-color: #AE875E !important; }
+.c10001 { background-color: rgba(108,175,182,0.95) !important; background: rgba(108,175,182,0.95) !important; border-color: #156F79 !important; }
+.c10002 { background-color: rgba(147,185,238,0.95) !important; background: rgba(147,185,238,0.95) !important; border-color: #4D74AC !important; }
+.c10003 { background-color: rgba(249,152,131,0.95) !important; background: rgba(249,152,131,0.95) !important; border-color: #E35435 !important; }
+.c11001 { background-color: rgba(40,45,45,0.95) !important; background: rgba(40,45,45,0.95) !important; border-color: #0F1818 !important; }
+.c11002 { background-color: rgba(210,212,212,0.95) !important; background: rgba(210,212,212,0.95) !important; border-color: #717676 !important; }
+.c12001 { background-color: rgba(243,243,243,0.95) !important; background: rgba(243,243,243,0.95) !important; border-color: #F3F3F3 !important; }
+.c12002 { background-color: rgba(255,215,207,0.95) !important; background: rgba(255,215,207,0.95) !important; border-color: #FFD7CF !important; }
+.c12003 { background-color: rgba(255,246,210,0.95) !important; background: rgba(255,246,210,0.95) !important; border-color: #FFF6D2 !important; }
+.c13001 { background-color: rgba(205,226,228,0.95) !important; background: rgba(205,226,228,0.95) !important; border-color: #156F79 !important; }
+.c-90 { background:  rgba(40,45,45,0.95) !important; border-color: #0F1818 !important; color: #FFF; }
+.c-95 { background: rgba(205,226,228,0.95) !important; 
+  background-image:
+  radial-gradient(#F3F3F3 20%, transparent 13%), 
+  radial-gradient(#F3F3F3 20%, transparent 13%) !important;
+  background-size: 12px 12px !important;
+  background-position: 0px 0px, 6px 6px !important;
+  border-color: #156F79 !important;
+  color: #0F1818;
+}
+.multicolor {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 16px;
+}
+.c-100 { background: rgba(108,175,182,0.95) !important;  border-color:  #156F79  !important; }
+.c12345, .c-80 
+{ background-color: #D2D4D4 !important; background: rgba(210,212,212,0.95) !important;  border-color:#717676 !important; }
+.cNone, .c-2
+{ background-color: #D2D4D4 !important; background: rgba(210,212,212,0.95) !important;  border-color:#717676 !important; }
+.strikecancelled, .c-70, .statusrejected {
+   background: #B2B4B4 !important;
+   color: #FFF;
+   border-color: #B2B4B4; 
+     background-image: 
+       linear-gradient(to bottom right,  transparent calc(50% - 1px), #FFF, transparent calc(50% + 1px)), 
+       linear-gradient(to top right,  transparent calc(50% - 1px), #FFF, transparent calc(50% + 1px)) !important;
+     text-decoration: none;
+}
+.msieworkaround .strikecancelled, .msieworkaround .c-70, .msieworkaround .statusrejected {
+     background-image: 
+       linear-gradient(to bottom right,  transparent 49%, #FFF, transparent 50%), 
+       linear-gradient(to top right,  transparent 49%, #FFF, transparent 50%) !important;
+}
+.timeDiv.strikecancelled {
+ background-image: none !important;
+ text-decoration: line-through; 
+}
+.cAutoNeed, .cAutoLocked {
+  background-color: #D2D4D4 !important; 
+  background: rgba(210,212,212,0.95) !important; 
+  font-style: italic;
+  border: 1px dotted #555 !important;
+}
+
+</style>
+    
+</head>
+<body class="desktop ">
+<div class="overlay" id="tipsoverlay" onclick="hideTips();return false;"></div>
+
+
+
+<span class="hidden" id="links_base" data-base="https://cloud.timeedit.net/nl_utwente/web/student/ri.html?h=t&amp;sid=13&amp;p=0.w%2C0.w"></span>
+<div id="header" class="ui-widget-header">
+<div id="pageHeader" role="banner" class="topbar pageHeader t4">
+<div class="wrapcentertop wraptopbar" >
+
+<span class="pageHeaderLink adminmenu pageMenuButton pageMenuLogo">
+<span class="topicon tesolid"></span>
+</span>
+
+<ul id="jsddm" class="pageMenuDrop">
+    <li id="pageMenuButtonItem" class="pageMenuButton ac">
+    	<a href="#" id="pageMenuButtonLink" class="pageMenu hoverlink  tooltip tooltipheader" aria-label="Account" data-tip="Account" aria-haspopup="true" aria-expanded="false"><span class="topicon teaccount"></span><span class="ht3">Account</span></a>
+        <ul id="pageHeaderMenuList" class="ui-state-default">
+            <li><h3>Account</h3></li>
+            <li><a href="#changezone" id="changetimezone" style="padding-bottom:0">Test Student<div id="utimezone"></div></a></li>
+            
+        <li><a href="javascript:TELanguage.change('*', 'https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html')"  class="adminmenusmall">Automatisch</a></li>
+        <li><a href="javascript:TELanguage.change('nl', 'https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QYZuQwu.html')"  lang="nl"  class="adminmenusmall">Nederlands</a></li>
+        <li><a href="javascript:TELanguage.change('en', 'https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QYZuQnw.html')"  lang="en"  class="adminmenusmall">English</a></li>
+    
+            
+            
+            
+            
+            <li><a href="#inlineAbout" id="showtech">Over TimeEdit</a></li>
+            
+            <li><a id="logoutbutton" data-env="production" href="/nl_utwente/web/timeedit/p/student/logout/">Uitloggen</a></li>
+        </ul>
+    </li>
+</ul>
+
+<div class="pageHeaderLink adminmenu pageMenuButton ac langdropdown">
+     <button onclick="PageMenu.showLangDrop()"  lang="nl"  aria-haspopup="true" aria-expanded="false" class="pageHeaderLink adminmenu clickable tooltip tooltipheader langdropdownbutton" aria-label="Nederlands" data-tip="Nederlands"><span class="topicon teflag"></span><span class="ht2">Nederlands</span></button>
+  <div id="langdroplist" class="langdroplist">
+  <h3>Kies taal</h3>
+     <a href="javascript:TELanguage.change('*', 'https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html')"  class="bl">Automatisch</a>
+     <a href="javascript:TELanguage.change('nl', 'https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QYZuQwu.html')"  lang="nl"  class="bl">Nederlands</a>
+     <a href="javascript:TELanguage.change('en', 'https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QYZuQnw.html')"  lang="en"  class="bl">English</a>
+  </div>
+</div>
+
+<div class="ohfixed">
+<a href="/nl_utwente/web/?en=t">
+<div class="pageHeaderLink nohover customerName  customerNamePadd">University of Twente</div>
+</a>
+</div>
+</div>
+
+<nav class="pageHeaderNav">
+<div class="wrapcentertop ac">
+<a href="/nl_utwente/web/?en=t" class="pageNav"><span class="pageHeaderProfile">University of Twente </span></a>
+<span class="pageNav pageHeaderProfile">&nbsp; / &nbsp;</span><a href="/nl_utwente/web/student/" class="pageNav pageHeaderCrum">Student </a>
+<span class="pageNav">&nbsp; / &nbsp;</span>
+<a href="#" class="reset pageHeaderCrum pageHeaderCurrent clickable ac" aria-haspopup="true" aria-expanded="false">Rooster 2025-2026<span id="pageFav"></span></a>
+<div class="clearBoth"></div>
+</div>
+</nav>
+
+<div class="hidden">
+<div id="techinfo" data-copy="Kopie" data-about="Over TimeEdit" data-info="Viewer 
+User: Test Student, 12,345, s0000000">
+</div>
+<div id="inlineAbout">
+<label>Over TimeEdit
+<textarea id="abouttext" spellcheck="false" data-defaultLocale="nl_NL" data-info-url="/nl_utwente/web/timeedit/p/student/info">
+Version: 9.71.1 Date: 20261006 1341 Build: 8.69.1-584-ga49a5982. APIMethods: edabc73. API: 85c5a71.
+</textarea>
+</label>
+</div>
+
+<div id="changezone" class="fancypadd">
+<label for="timezonedrop" class="bl zonetitle greenw">Tijdzone aanpassen</label>
+<div class="zoneask">Het ziet er naar uit dat uw TimeEdit tijdzone afwijkt van uw huidige apparaattijd. Wilt u de tijdzone wijzigen?</div>
+<select id="timezonedrop" style="width: 100%"></select>
+<div class="smallhelp">U kunt de tijdzone aanpassen in het menu Account</div>
+<br><br>
+<label for="dateformatdrop" class="bl zonetitle greenw">Verander datumnotatie</label>
+<select id="dateformatdrop" style="width: 100%"></select>
+</div>
+<div id="inlineSupport" class="fancypadd">
+    <div class="zonetitle greenw">Support</div>
+</div>
+</div>
+</div>
+<div id="pageHeaderOverlay" class="overlay hidden"></div>
+<noscript><p class="message errormessage">Om deze pagina goed te laten werken moet uw browswer JavaScript ondersteunen.</p></noscript><nav class="flexWrap">
+  <div class="flexFixed">
+     <a class="leftHeader btrToday clickable btr btrFirst ac" href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5vZyQ0f7X0QY.html" aria-label="Vandaag. Ga naar vandaag"><span>Vandaag</span><div class="help">Ga naar vandaag</div></a>
+     <a class="leftHeader clickable btr  leftHeaderWeek iosinvisible ac" href="https://cloud.timeedit.net/nl_utwente/web/student/ri13566y665730Q02WQ06101Z7.html" aria-label="Ga naar vorige week"><span class="btrLeft">&nbsp;</span><div class="help">Ga naar vorige week</div></a>
+  <label class="leftHeader clickable leftHeaderSmall perioddropwrap select2nocheck leftHeaderWeek iosinvisible ac" aria-label="Verander periode">
+     <select class="clickable perioddropsmall" data-text="W 35"><option value="">W 35</option></select>
+     <div class="help">Verander periode</div>
+  </label>
+     <a class="leftHeader clickable btr  leftHeaderWeek iosinvisible ac" href="https://cloud.timeedit.net/nl_utwente/web/student/ri13560y667740Q05WQ06101Z1.html" aria-label="Ga naar volgende week"><span class="btrRight">&nbsp;</span><div class="help">Ga naar volgende week</div></a>
+     <a class="leftHeader clickable openRangeButton ac" id="openStartRangeButton" href="#searchDivRangeStart" data-objectid="" aria-haspopup="true" aria-expanded="false" aria-label="Huidige week. Verander startdatum">
+     <span>Huidige week</span>
+     <div class="help">Verander startdatum</div>
+     </a>
+     
+     <a class="leftHeader clickable openRangeButton ac" id="openEndRangeButton" href="#searchDivRangeEnd" data-objectid="" aria-haspopup="true" aria-expanded="false" aria-label="Hele week. Verander einddatum">
+      <span>Hele week</span>
+      
+     <div class="help">Verander einddatum</div>
+     </a>
+	 <a class="clickable leftHeader openSearchButton ac" id="openSearchButton" href="#searchDivContent" data-objectid="" aria-haspopup="true" aria-expanded="false" aria-label="Verander de zoekopdracht">
+       <span class="tesprite tesprite-search tespritefloatleft changesearchtext"></span>
+       <span class="flexFixed">Zoek</span>
+       <div class="help">Verander de zoekopdracht</div>
+     </a>
+    </div>
+       <a href="#" id="searchTextWide" class="clickable leftHeader openSearchButton flexDynamic ac" aria-haspopup="true" aria-expanded="false"  aria-label="Verander de zoekopdracht. "><h1 id="mainh1" class="searchTextInside iosinvisible"></h1><span class="help">Verander de zoekopdracht</span></a>
+ <div class="flexFixed">
+  <div tabindex="0" role="button" class="rightHeader clickable tabSwitcher  ac" aria-haspopup="true" aria-expanded="false"><span class="tesprite tesprite-gear tespriteinlineblock"></span><span class="ht">Aanpassen</span><div class="help">Aanpassen</div></div>
+ </div>  
+</nav>
+  <div class="clearBoth"></div>
+</div>
+<div id="topbar"></div>
+
+<div class="overlay" id="headlineTimeOverlay" style="display:none;"></div>
+<div class="overlay" id="datePickTimeOverlay" style="z-index:1300; display:none;"></div>
+<div id="headerPadder" class="clearBoth" style="height:119px">&nbsp;</div>
+      <div id="dateRange" class="ui-corner-all rangePickWrap smallScreenRangePick hidden topmenu">
+          <div class="quickperiodwrap">
+          <div class="hidden"><label><input type="checkbox" id="fullweeksCheckbox" checked="checked">Volledige weken</label></div>
+          
+          </div>
+          <div class="rangePick rangePickStart" data-date="20260824">
+            <div class="rangePickHeader hidden">Start <span id="rangeStartNice">Huidige week</span><input type="hidden" id="txtRangeAltStart" value="20260824">
+             <input type="button" class="hidden" id="rangeTypeButtonStart" data-paramtext="0.w" value="Vanaf vandaag" data-first="Kalender" data-second="Vanaf vandaag"> 
+            </div>
+            <div id="flipStart" data-isRel="t">
+	            <div id="txtRangeStart" data-date="20260824"></div>
+	            <div id="txtRangeRelativeStart"><div class="ui-widget ui-widget-content ui-helper-clearfix ui-corner-all rangeRel ui-datepicker-inline">
+	            <label class="bl rangeTitle">Relatief begin</label>
+<div class="ui-widget-header datepicktop">
+<label><select class="te-ui-select ui-corner-all valueselect hidden" id="periodvaluestartRange" name="periodstartRange">
+		<option value="619" >Nu</option>
+	
+		<option value="0" SELECTED>Huidig</option>
+		<option value="1" >+1</option>
+		<option value="2" >+2</option>
+		<option value="3" >+3</option>
+		<option value="4" >+4</option>
+		<option value="5" >+5</option>
+		<option value="6" >+6</option>
+		<option value="7" >+7</option>
+		<option value="8" >+8</option>
+		<option value="9" >+9</option>
+		<option value="10" >+10</option>
+	<option value="-1" >-1</option><option value="-2" >-2</option><option value="-3" >-3</option><option value="-4" >-4</option><option value="-5" >-5</option><option value="-6" >-6</option>
+</select></label>
+<label><select class="te-ui-select ui-corner-all timeselect" id="periodtimestartRange" name="periodstartRange">
+<option value="n"  data-plur="maanden" data-sing="maand">maanden</option><option value="w" SELECTED data-plur="weken" data-sing="week">weken</option><option value="d"  data-plur="dagen" data-sing="dag">dagen</option><option value="h"  data-plur="uren" data-sing="uur">uren</option>
+
+</select></label>
+</div>
+  <div class="ui-datepicker ui-widget ui-helper-clearfix" style="display: block;">
+    <table class="ui-datepicker-calendar picktable">
+    <tbody>
+	<tr>
+	   
+	   <td onclick="selectPeriod('#periodvaluestartRange',-1);return false;"><a class="ui-state-default" href="#">-1</a></td>
+	   
+	   <td onclick="selectPeriod('#periodvaluestartRange',-2);return false;"><a class="ui-state-default" href="#">-2</a></td>
+	   
+	   <td onclick="selectPeriod('#periodvaluestartRange',-3);return false;"><a class="ui-state-default" href="#">-3</a></td>
+	   
+	   <td onclick="selectPeriod('#periodvaluestartRange',-4);return false;"><a class="ui-state-default" href="#">-4</a></td>
+	   
+	   <td onclick="selectPeriod('#periodvaluestartRange',-5);return false;"><a class="ui-state-default" href="#">-5</a></td>
+	   
+	   <td onclick="selectPeriod('#periodvaluestartRange',-6);return false;"><a class="ui-state-default" href="#">-6</a></td>
+	</tr>
+	<tr>
+	   
+	   <td class="ui-datepicker-current-day" onclick="selectPeriod('#periodvaluestartRange',0);return false;"><a class="ui-state-default ui-state-active" href="#">+0</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvaluestartRange',1);return false;"><a class="ui-state-default" href="#">+1</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvaluestartRange',2);return false;"><a class="ui-state-default" href="#">+2</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvaluestartRange',3);return false;"><a class="ui-state-default" href="#">+3</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvaluestartRange',4);return false;"><a class="ui-state-default" href="#">+4</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvaluestartRange',5);return false;"><a class="ui-state-default" href="#">+5</a></td>
+	   </tr><tr>
+	   <td class="" onclick="selectPeriod('#periodvaluestartRange',6);return false;"><a class="ui-state-default" href="#">+6</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvaluestartRange',7);return false;"><a class="ui-state-default" href="#">+7</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvaluestartRange',8);return false;"><a class="ui-state-default" href="#">+8</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvaluestartRange',9);return false;"><a class="ui-state-default" href="#">+9</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvaluestartRange',10);return false;"><a class="ui-state-default" href="#">+10</a></td>
+    </tr>
+    <tr><td colspan="8"> &nbsp; </td></tr>
+    <tr><td colspan="8" onclick="selectPeriod('#periodvaluestartRange',619);return false;"><a class="button" href="#">Starttijd: nu</a></td></tr>
+    </tbody>
+    </table>
+  </div>
+	            </div></div>
+            </div>
+            <label class="flipPeriod">Verander periode <select class="perioddrop"></select></label>
+            <a tabindex="0" class="flip flipStartButton clickable" href="#" data-first="Relatief begin"  data-second="Kalender">Relatief begin</a>
+          </div>
+          <div class="rangePick rangePickEnd">
+            <div class="rangePickHeader hidden">Eind <span id="rangeEndNice">Hele week</span><input type="hidden" id="txtRangeAltEnd" value="20260830"> 
+             <input type="button" class="hidden" id="rangeTypeButtonEnd"  data-paramtext="0.w" value="Lengte"  data-first="Kalender" data-second="Lengte"> 
+            </div>
+            <div id="flipEnd" data-isRel="t">
+	            <div id="txtRangeEnd" data-date="20260830"></div>
+	            <div id="txtRangeRelativeEnd"><div class="ui-widget ui-widget-content ui-helper-clearfix ui-corner-all rangeRel ui-datepicker-inline">
+	            <label class="bl rangeTitle">Relatief einde</label>
+<div class="ui-widget-header datepicktop">
+<label><select class="te-ui-select ui-corner-all valueselect hidden" id="periodvalueendRange" name="periodendRange">
+	
+		<option value="0" SELECTED>Hele</option>
+		<option value="1" >+1</option>
+		<option value="2" >+2</option>
+		<option value="3" >+3</option>
+		<option value="4" >+4</option>
+		<option value="5" >+5</option>
+		<option value="6" >+6</option>
+		<option value="7" >+7</option>
+		<option value="8" >+8</option>
+		<option value="9" >+9</option>
+		<option value="10" >+10</option>
+		<option value="11" >+11</option>
+		<option value="12" >+12</option>
+		<option value="13" >+13</option>
+		<option value="14" >+14</option>
+		<option value="15" >+15</option>
+		<option value="16" >+16</option>
+		<option value="17" >+17</option>
+		<option value="18" >+18</option>
+		<option value="19" >+19</option>
+		<option value="20" >+20</option>
+	
+</select></label>
+<label><select class="te-ui-select ui-corner-all timeselect" id="periodtimeendRange" name="periodendRange">
+<option value="n"  data-plur="maanden" data-sing="maand">maanden</option><option value="w" SELECTED data-plur="weken" data-sing="week">weken</option><option value="d"  data-plur="dagen" data-sing="dag">dagen</option><option value="h"  data-plur="uren" data-sing="uur">uren</option>
+
+</select></label>
+</div>
+  <div class="ui-datepicker ui-widget ui-helper-clearfix" style="display: block;">
+    <table class="ui-datepicker-calendar picktable">
+    <tbody>
+	<tr>
+	   
+	   <td class="ui-datepicker-current-day" onclick="selectPeriod('#periodvalueendRange',0);return false;"><a class="ui-state-default ui-state-active" href="#">+0</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',1);return false;"><a class="ui-state-default" href="#">+1</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',2);return false;"><a class="ui-state-default" href="#">+2</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',3);return false;"><a class="ui-state-default" href="#">+3</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',4);return false;"><a class="ui-state-default" href="#">+4</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',5);return false;"><a class="ui-state-default" href="#">+5</a></td>
+	   </tr><tr>
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',6);return false;"><a class="ui-state-default" href="#">+6</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',7);return false;"><a class="ui-state-default" href="#">+7</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',8);return false;"><a class="ui-state-default" href="#">+8</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',9);return false;"><a class="ui-state-default" href="#">+9</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',10);return false;"><a class="ui-state-default" href="#">+10</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',11);return false;"><a class="ui-state-default" href="#">+11</a></td>
+	   </tr><tr>
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',12);return false;"><a class="ui-state-default" href="#">+12</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',13);return false;"><a class="ui-state-default" href="#">+13</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',14);return false;"><a class="ui-state-default" href="#">+14</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',15);return false;"><a class="ui-state-default" href="#">+15</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',16);return false;"><a class="ui-state-default" href="#">+16</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',17);return false;"><a class="ui-state-default" href="#">+17</a></td>
+	   </tr><tr>
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',18);return false;"><a class="ui-state-default" href="#">+18</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',19);return false;"><a class="ui-state-default" href="#">+19</a></td>
+	   
+	   <td class="" onclick="selectPeriod('#periodvalueendRange',20);return false;"><a class="ui-state-default" href="#">+20</a></td>
+    </tr>
+    <tr><td colspan="8"> &nbsp; </td></tr>
+    <tr><td colspan="8" onclick="selectPeriod('#periodvalueendRange',0);return false;"><a class="button" href="#">Eind datum:Hele</a></td></tr>
+    </tbody>
+    </table>
+  </div>
+	            </div></div>
+            </div>
+            <a tabindex="0" class="flip flipEndButton clickable" href="#" data-first="Relatief einde"  data-second="Kalender">Relatief einde</a>
+          </div>
+         <br class="clearBoth hidden">
+         <div class="rangeButtons hidden">
+         <label><select id="rangeTypeSelector" style="float:left" class="ui-corner-all basicSelect">
+                  <option value="0" selected>Kalender</option>
+                  <option value="1">Vanaf vandaag</option>
+                  <option value="2">Vandaag tot op heden</option>
+          </select></label><div>
+                <span id="changeRangeMessage" class="stacktraceError" data-text="De einddatum is voor de begindatum"></span>
+             </div> <span class="nobr">Datalimieten 2025-09-01 - 2026-08-30</span>
+         </div>
+      </div>
+
+
+<div id="ajaxError" class="hidden"></div>
+
+
+
+
+<span id="linksdata" 
+data-linksbase="https://cloud.timeedit.net/nl_utwente/web/student/ri.html?h=t&amp;sid=13&amp;p=0.w%2C0.w" 
+data-sid="13"
+data-lang="nl_AW"
+data-startLimit="20250901"
+data-endLimit="20260830"
+data-timeStep="0"
+data-flip="false"
+data-objectInfoLimited=""
+data-objectGroupField="0"
+data-preferedLength="60"
+data-urltitle="" 
+data-SaveScheduleName="Kies naam om deze favoriet te bewaren"
+data-week="W "
+data-RemoveSchedule="Wilt u deze favoriet verwijderen?"
+data-remove="Verwijderen"
+data-freeresources="Vrij"
+data-titleName="Reserveringsinformatie"
+data-myresources="Laatst gereserveerde objecten"
+data-objectClickable="false"
+data-staticui="/static/9.71.1_1341/"
+data-searchids="" 
+data-searchidsenc="" 
+data-searchnames="" 
+class="hidden"></span>
+
+<div class="topmenu"   data-showsearch="true"  id="searchDiv">
+<div id="searchDivContent2" class="fancyinside"><div id="objectMover" class="basketMover"></div>
+
+<div class="fancysearchwrap">
+
+<div class="fancyform fancysearchform" role="search">
+
+<label for="ffsearchname" class="bl searchTitle">Zoek
+</label>
+<div class="ui-widget-header ui-corner-all adminFieldTableHead searchDivHeader searchAdvanced searchHeaderRow">
+  <div class="searchButtons">
+  <label>
+  <select class="" id="fancytypeselector" name="fancytypeselector" onchange="ObjectsSearcher.fieldSetsChange();">
+     
+       <option value="5" SELECTED>Cursus</option>
+       <option value="59" >Cursusonderdeel</option>
+       <option value="14" >Studieprogramma</option>
+       <option value="32" >Cursus UTLC</option>
+       <option value="66" >Cursus Navitas</option>
+       <option value="6" >Studentenset</option>
+  </select>
+  </label>
+  <span class="nobr">
+  <input type="search" class="ffinput ffsearchInput objectinputtext" id="ffsearchname" name="fftext" value="" placeholder="Zoek" data-search="Zoek" data-name="Vrije tekst"/><input class="ffsearchbutton objectsearchbutton objectinputsearchbutton" type="button" value="Zoek">
+  </span>
+  <a href="#" class="clickable hoverlink showFieldsLink t4small hidden" onclick="toggleFields(event)"  aria-haspopup="true" aria-expanded="false" data-show="yes" data-alt-text="Toon filter">Verberg filter</a>
+  <a class="topclose searchClose" onclick="moveSearchDivBack();return false;"></a>
+  </div>
+</div>
+<form id="fancyformfieldsearch" name="fancyformfieldsearch" data-loadSelected="f">  
+
+  <fieldset id="ffset5" class="fancyfieldset  fancyNoBorder">
+  
+    <div class="searchAdvancedFields hidden">
+      <label class="bl searchField hidden">
+      <select class="fancyformfieldsearchselect objectFieldsParam hidden" multiple size="4" data-param="fe" data-tefieldkind="CATEGORY" data-name="College jaar" name="5_148" data-prefix="148" id="ff5_148">
+        
+          <option value="2025" selected>2025</option>
+      </select>
+       </label>
+      <label class="bl searchField">
+      <select class="fancyformfieldsearchselect objectFieldsParam " multiple size="8" data-param="fe" data-tefieldkind="CATEGORY" data-name="Aanvangsblok" name="5_40" data-prefix="40" id="ff5_40">
+        <option value="__a__">Komt overeen met alle geselecteerde</option>
+          <option value="1A">1A</option>
+          <option value="1B">1B</option>
+          <option value="2A">2A</option>
+          <option value="2B">2B</option>
+          <option value="JAAR">JAAR</option>
+          <option value="SEM1">SEM1</option>
+          <option value="SEM2">SEM2</option>
+      </select>
+       </label>
+    <div class="clearBoth searchAdvancedFieldsButtons">
+      
+        <a href="#" data-id="5" data-basename="Cursus" data-name="Cursus" data-addText="Toevoegen:" class="searchrescatlink shadedoutline tooltip tooltipunder" data-tip="Categorie rooster. Voeg alle objecten toe die overeenkomen met het huidige filter.">Toevoegen: Cursus</a>
+       <a href="#" data-id="-1" data-name="–" class="searchseparator shadedoutline tooltip tooltipunder" data-tip="Voer een nieuwe zoekopdracht uit met de criteria onder deze Scheidingsteken.">Scheidingsteken + </a>
+       <a href="#" data-id="-6" data-name="&&" class="searchseparator shadedoutline tooltip tooltipunder" data-tip="Reserveringen moeten de criteria bevatten onder deze Filter.">Filter && </a>       
+       
+       
+      <a href="#" style="float: right;padding-top: 0.5em;" class="t4small" onclick="return ObjectsSearcher.clearAllForms()">Reset</a>
+    </div>
+    </div>
+  </fieldset>
+  <fieldset id="ffset59" class="fancyfieldset hidden fancyNoBorder">
+  
+    <div class="searchAdvancedFields hidden">
+    <div class="clearBoth searchAdvancedFieldsButtons">
+      
+        <a href="#" data-id="59" data-basename="Cursusonderdeel" data-name="Cursusonderdeel" data-addText="Toevoegen:" class="searchrescatlink shadedoutline tooltip tooltipunder" data-tip="Categorie rooster. Voeg alle objecten toe die overeenkomen met het huidige filter.">Toevoegen: Cursusonderdeel</a>
+       <a href="#" data-id="-1" data-name="–" class="searchseparator shadedoutline tooltip tooltipunder" data-tip="Voer een nieuwe zoekopdracht uit met de criteria onder deze Scheidingsteken.">Scheidingsteken + </a>
+       <a href="#" data-id="-6" data-name="&&" class="searchseparator shadedoutline tooltip tooltipunder" data-tip="Reserveringen moeten de criteria bevatten onder deze Filter.">Filter && </a>       
+       
+       
+      <a href="#" style="float: right;padding-top: 0.5em;" class="t4small" onclick="return ObjectsSearcher.clearAllForms()">Reset</a>
+    </div>
+    </div>
+  </fieldset>
+  <fieldset id="ffset14" class="fancyfieldset hidden fancyNoBorder">
+  
+    <div class="searchAdvancedFields hidden">
+      <label class="bl searchField">
+      <select class="fancyformfieldsearchselect objectFieldsParam " multiple size="7" data-param="fe" data-tefieldkind="CATEGORY" data-name="Blok" name="14_147" data-prefix="147" id="ff14_147">
+        <option value="__a__">Komt overeen met alle geselecteerde</option>
+          <option value="1A">1A</option>
+          <option value="1B">1B</option>
+          <option value="2A">2A</option>
+          <option value="2B">2B</option>
+          <option value="3">3</option>
+          <option value="Year">Year</option>
+      </select>
+       </label>
+    <div class="clearBoth searchAdvancedFieldsButtons">
+      
+        <a href="#" data-id="14" data-basename="Studieprogramma" data-name="Studieprogramma" data-addText="Toevoegen:" class="searchrescatlink shadedoutline tooltip tooltipunder" data-tip="Categorie rooster. Voeg alle objecten toe die overeenkomen met het huidige filter.">Toevoegen: Studieprogramma</a>
+       <a href="#" data-id="-1" data-name="–" class="searchseparator shadedoutline tooltip tooltipunder" data-tip="Voer een nieuwe zoekopdracht uit met de criteria onder deze Scheidingsteken.">Scheidingsteken + </a>
+       <a href="#" data-id="-6" data-name="&&" class="searchseparator shadedoutline tooltip tooltipunder" data-tip="Reserveringen moeten de criteria bevatten onder deze Filter.">Filter && </a>       
+       
+       
+      <a href="#" style="float: right;padding-top: 0.5em;" class="t4small" onclick="return ObjectsSearcher.clearAllForms()">Reset</a>
+    </div>
+    </div>
+  </fieldset>
+  <fieldset id="ffset32" class="fancyfieldset hidden fancyNoBorder">
+  
+    <div class="searchAdvancedFields hidden">
+    <div class="clearBoth searchAdvancedFieldsButtons">
+      
+        <a href="#" data-id="32" data-basename="Cursus UTLC" data-name="Cursus UTLC" data-addText="Toevoegen:" class="searchrescatlink shadedoutline tooltip tooltipunder" data-tip="Categorie rooster. Voeg alle objecten toe die overeenkomen met het huidige filter.">Toevoegen: Cursus UTLC</a>
+       <a href="#" data-id="-1" data-name="–" class="searchseparator shadedoutline tooltip tooltipunder" data-tip="Voer een nieuwe zoekopdracht uit met de criteria onder deze Scheidingsteken.">Scheidingsteken + </a>
+       <a href="#" data-id="-6" data-name="&&" class="searchseparator shadedoutline tooltip tooltipunder" data-tip="Reserveringen moeten de criteria bevatten onder deze Filter.">Filter && </a>       
+       
+       
+      <a href="#" style="float: right;padding-top: 0.5em;" class="t4small" onclick="return ObjectsSearcher.clearAllForms()">Reset</a>
+    </div>
+    </div>
+  </fieldset>
+  <fieldset id="ffset66" class="fancyfieldset hidden fancyNoBorder">
+  
+    <div class="searchAdvancedFields hidden">
+    <div class="clearBoth searchAdvancedFieldsButtons">
+      
+        <a href="#" data-id="66" data-basename="Cursus Navitas" data-name="Cursus Navitas" data-addText="Toevoegen:" class="searchrescatlink shadedoutline tooltip tooltipunder" data-tip="Categorie rooster. Voeg alle objecten toe die overeenkomen met het huidige filter.">Toevoegen: Cursus Navitas</a>
+       <a href="#" data-id="-1" data-name="–" class="searchseparator shadedoutline tooltip tooltipunder" data-tip="Voer een nieuwe zoekopdracht uit met de criteria onder deze Scheidingsteken.">Scheidingsteken + </a>
+       <a href="#" data-id="-6" data-name="&&" class="searchseparator shadedoutline tooltip tooltipunder" data-tip="Reserveringen moeten de criteria bevatten onder deze Filter.">Filter && </a>       
+       
+       
+      <a href="#" style="float: right;padding-top: 0.5em;" class="t4small" onclick="return ObjectsSearcher.clearAllForms()">Reset</a>
+    </div>
+    </div>
+  </fieldset>
+  <fieldset id="ffset6" class="fancyfieldset hidden fancyNoBorder">
+  
+    <div class="searchAdvancedFields hidden">
+    <div class="clearBoth searchAdvancedFieldsButtons">
+      
+        <a href="#" data-id="6" data-basename="Studentenset" data-name="Studentenset" data-addText="Toevoegen:" class="searchrescatlink shadedoutline tooltip tooltipunder" data-tip="Categorie rooster. Voeg alle objecten toe die overeenkomen met het huidige filter.">Toevoegen: Studentenset</a>
+       <a href="#" data-id="-1" data-name="–" class="searchseparator shadedoutline tooltip tooltipunder" data-tip="Voer een nieuwe zoekopdracht uit met de criteria onder deze Scheidingsteken.">Scheidingsteken + </a>
+       <a href="#" data-id="-6" data-name="&&" class="searchseparator shadedoutline tooltip tooltipunder" data-tip="Reserveringen moeten de criteria bevatten onder deze Filter.">Filter && </a>       
+       
+       
+      <a href="#" style="float: right;padding-top: 0.5em;" class="t4small" onclick="return ObjectsSearcher.clearAllForms()">Reset</a>
+    </div>
+    </div>
+  </fieldset>
+</form>
+</div>
+<div id="searchLoader" class="searchani"></div>
+
+<div id="searchColumnWrapper" class="searchColumnBox searchAdvancedShow">
+<div class="middlewrapper">
+	<h2 class="ui-widget-header ui-corner-all adminFieldTableHead searchDivHeader searchAdvanced middlesearchwrap searchwraptitle">
+	<div class="middlesearchtitle"><span class="middlesearchname" data-name="Resultaat" data-relprefix="voor">Resultaat</span></span> <span id="searchTextLegend" class="hidden" data-nomatches="" data-result="" data-search=" Zoeken "></div>
+	</h2>
+	<div class="fancyform fancyresultform" id="fancyformfieldresult">
+    	<div id="objectsearchresult"><div class="clicksearchicon"></div></div>
+    </div>
+</div>  
+</div>
+<div class="fancyform fancyformInfo" id="fancyformLeft">
+<h2 class="ui-widget-header ui-corner-all adminFieldTableHead searchDivHeader searchAdvanced searchwraptitle"><span class="hasHelp">Mijn criteria
+<span class="helpicon"></span> <span class="linkhelp linkhelpsmall linkhelpbelow">Sleep en zet neer om opnieuw te ordenen</span></span>    
+<a href="#" id="leftclearbutton" class="leftclearbutton t4small hidden" onclick="return emptyBasketConfirm(this, '');" title="Verwijder Mijn criteria" aria-label="Verwijder Mijn criteria">Verwijder</a>
+<a href="#" id="leftsortbutton" class="leftclearbutton t4small hidden" onclick="return sortBasket(this);" title="Sorteer Mijn criteria" aria-label="Sorteer Mijn criteria">Sorteer</a>
+</h2>
+<div class="favoritecontainer">
+<div id="baskettarget" class="objectbasketwrap searchAdvanced">
+  <div id="objectbaskettext"><div class="emptyBasketicon"></div>
+  <div id="basketSelectText" data-select="Kies op zijn minst één object" data-none="Nog niets geselecteerd" class="emptyBasket basketpadded">Nog niets geselecteerd</div> 
+  </div>
+  <div id="objectbasket" class="basketpadded" data-title="Verwijderen"></div>
+  </div>
+    <input id="objectbasketgo" data-mandatory="yes" type="button" data-copy="Kopie" data-search="Toon rooster" value="Toon rooster">
+    </div>
+</div>
+<div class="clearBoth"></div>
+</div>
+<div class="clearBoth"></div>
+</div>
+  <hr class="searchsplit">
+	<div class="favoriteboxsearch">
+	<div id="favoritebox2" class="favoritewrap dialog">
+	  <h2 class="ui-widget-header ui-corner-all hasHelp searchDivHeader searchAdvanced searchbottom"><span class="tesprite tesprite-starempty tespritetop"></span>Favorieten
+	  <span class="helpicon"></span> <span class="linkhelp linkhelpsmall linkhelpbelow">Sleep en zet neer om opnieuw te ordenen</span></span>    
+	  </h2>
+	  <div id="savedfavoriteslist"></div>
+	</div>
+	</div>
+    <div id="favoritewrap" class="favoritewrap dialog">
+	  <h2 class="ui-widget-header ui-corner-all searchDivHeader searchAdvanced searchbottom"><span class="tesprite tesprite-history tespritetop"></span>Geschiedenis<a href="#" class="leftclearbutton t4small" onclick="return emptyHistory(this);" title="Verwijder Geschiedenis" aria-label="Verwijder Geschiedenis">Verwijder</a></h2>
+	  <ul class="historylist favoriteitems"><li></li></ul>
+    </div>
+  </div>
+
+
+<div class="overlay" id="footerOverlay" style="display:none;"></div>
+
+<div id="footer" class="topmenu topmenuright" style="display:none;">
+ <ul class="footerLinkList2 expBack" id="footerList">
+      <li tabindex="0" role="button" class="clickable exp expTab tabcount2" id="mergelinksElement2"><div class="expbox"><span class="tesprite tesprite-merge tespritecenter"></span>Layout</div></li>
+      <li tabindex="0" role="button" class="clickable exp expTab tabcount2" id="colorlinksElement2"><div class="expbox"><span class="tesprite tesprite-color_wheel tespritecenter"></span>Reserveringen</div></li>
+  </ul>
+
+<div class="footer2" id="footer2">
+  <div class="flinks" id="colorlinksElement">
+    <div class="rescontenttitle">Kleur</div>
+    <div class="footerLinkList">
+
+
+ 
+<div data-id="" class="hasHelp headlineLink">
+<label  for="te_link_1"  class="bl" title="Kleur door">
+
+Kleur door
+<span class="helpicon"></span> <span class="linkhelp">Kleuren worden toegewezen vanuit de beheerinterface in <b>Core</b>, per <b>Type</b>. <br>Als objecten met een <b>Core</b>-kleur waaraan <b>Type</b> is toegewezen een specifieke kleur hebben, krijgen ze dezelfde kleur in <b>Viewer</b>. <br>Als objecten met een <b>Core</b>-kleur waaraan <b>Type</b> is toegewezen geen kleur hebben, krijgen ze geen kleur of een willekeurige kleur in <b>Viewer</b>, volgens de beheerinstellingen van <b>Core</b>. <br>Objecten van typen waaraan helemaal geen kleur is toegewezen in <b>Core</b>, worden volledig willekeurig toegewezen.<br>
+
+Objecten moeten zichtbaar zijn in het schema om te kunnen worden geselecteerd in <b>Kleur door</b></span>
+</label>
+</div>
+
+<select id="te_link_1" data-name=""  class="droplink ">
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZlQQ0.html#colorlinks">Standaard (TimeEdit groen)</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZlQQg34.html#colorlinks">Zwart en wit</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZlQQg40.html#colorlinks">Omgekeerd zwart en wit</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZlQQg49.html#colorlinks">Beschikbaarheid</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZlQQg42.html#colorlinks">Status</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZlQQg45.html#colorlinks">Zoekcriteria</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZlQQg46.html#colorlinks">Huidig</option>
+</select>
+
+
+</div><div class="footerLinkList"><select id="te_link_3" data-name=""  class="droplink ">
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZlQbQ0.html#colorlinks"></option>
+</select>
+
+
+</div><div class="footerLinkList">
+
+
+
+<div data-id="" class="hasHelp lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZlQQc.html#colorlinks" class="pagelock checkwrap  linkhelpleft ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZlQQc.html#colorlinks'" type="checkbox" name="n4" ><span class="checkmark"></span>Markeer speciale reserveringen</label>
+<span class="helpicon"></span> <span class="linkhelp">Markeer speciale reserveringen zoals verplichte colleges of tentamens.</span>
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZlQnQo.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZlQnQo.html#colorlinks'" type="checkbox" name="n4" checked="checked"><span class="checkmark"></span>Toon kleurlegende</label>
+
+</a>
+</div>
+
+
+
+
+</div>
+    <div class="headlineLink">Kleur op objecten</div>
+    <div class="footerLinkList footerColumns">
+
+
+</div>
+    
+    <div class="rescontenttitle">Inhoud</div>
+    <div class="footerLinkList" id="columnorder">
+
+
+
+<div data-id="" class="hasHelp headlineLink skipFor">
+<label  class="bl" title="Zichtbare informatie">
+
+Zichtbare informatie
+<span class="helpicon"></span> <span class="linkhelp">Voorheen <b>Zichtbare kolommen</b> genoemd. Selecteer en herschik welke informatie u over de reserveringen wilt weergeven.</span>
+</label>
+</div>
+
+
+
+
+
+<div data-id="" class="smallhelp">
+<label  class="bl" title="Sleep en zet neer om opnieuw te ordenen">
+
+Sleep en zet neer om opnieuw te ordenen
+
+</label>
+</div>
+
+
+
+
+
+<div data-id="5-33-Course.5-92- .32-106- .66-158- " class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV57XZW0XqZWcXQdlwc1yn05c7W9WCWaSx6nVWW19WY17bWV04WVY1Y9563W5.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV57XZW0XqZWcXQdlwc1yn05c7W9WCWaSx6nVWW19WY17bWV04WVY1Y9563W5.html#colorlinks'" type="checkbox" name="n6" checked="checked"><span class="checkmark"></span>Cursus, Cursus: Cursuscode osiris, Cursus UTLC: Code, Cursus Navitas: Naam</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="59-161-Course part" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV55XZ40XqZWcXQClwc1yn05cWW9W51xSWdacnVyjab.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV55XZ40XqZWcXQClwc1yn05cWW9W51xSWdacnVyjab.html#colorlinks'" type="checkbox" name="n6" checked="checked"><span class="checkmark"></span>Cursusonderdeel</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="f88-Description" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV5WXZ30XqZWcXQllwc1yn05c3WoWnDaSbrycrxw.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV5WXZ30XqZWcXQllwc1yn05c3WoWnDaSbrycrxw.html#colorlinks'" type="checkbox" name="n6" checked="checked"><span class="checkmark"></span>Beschrijving</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="50-27-Activity type" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV56XZ00XqZWcXQllwc1yn05cWW9WW2cSAreychVchrn.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV56XZ00XqZWcXQllwc1yn05cWW9WW2cSAreychVchrn.html#colorlinks'" type="checkbox" name="n6" checked="checked"><span class="checkmark"></span>Werkvorm</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="67-159-Resit" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV55XZ20XqZWcXQRlwc1yn05cWW1W49nSWbrc.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV55XZ20XqZWcXQRlwc1yn05cWW1W49nSWbrc.html#colorlinks'" type="checkbox" name="n6" checked="checked"><span class="checkmark"></span>Herkansing</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="4-7-Hall" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV5WXZW0XqZWcXQulwc1yn05c2W8WjHuS.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV5WXZW0XqZWcXQulwc1yn05c2W8WjHuS.html#colorlinks'" type="checkbox" name="n6" checked="checked"><span class="checkmark"></span>Zaal</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="4-20-Building" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV50XZW0XqZWcXQrlwc1yn05c6W8WBWuSdmrwp.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV50XZW0XqZWcXQrlwc1yn05c6W8WBWuSdmrwp.html#colorlinks'" type="checkbox" name="n6" checked="checked"><span class="checkmark"></span>Gebouw</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="6-10-Student Set" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f1yl0f7W0QYZlQqQ58XZ9.html#colorlinks" class="pagelock checkwrap   ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f1yl0f7W0QYZlQqQ58XZ9.html#colorlinks'" type="checkbox" name="n6" ><span class="checkmark"></span>Studentset</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="3-49-Lecturer" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV54XZW0XqZWcXQllwc1yn05c8W7WLWcSndana.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV54XZW0XqZWcXQllwc1yn05c8W7WLWcSndana.html#colorlinks'" type="checkbox" name="n6" checked="checked"><span class="checkmark"></span>Docent</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="f26-Additional information" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV5WXZ60XqZWcXQrlwc1yn05c1WoWmAcSmvxojuxrjwxarwcrVw.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV5WXZ60XqZWcXQrlwc1yn05c1WoWmAcSmvxojuxrjwxarwcrVw.html#colorlinks'" type="checkbox" name="n6" checked="checked"><span class="checkmark"></span>Extra informatie</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="f1" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV5WXZ50XqZWcXQSlwc1yn05coW.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV5WXZ50XqZWcXQSlwc1yn05coW.html#colorlinks'" type="checkbox" name="n6" checked="checked"><span class="checkmark"></span>Reserveringstitel</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="14-65" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f0ylSf750QYmnQdV1WXZW0cqZnccQSlw.html#colorlinks" class="pagelock checkwrap   ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f0ylSf750QYmnQdV1WXZW0cqZnccQSlw.html#colorlinks'" type="checkbox" name="n6" ><span class="checkmark"></span>Studieprogramma: Naam</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="4-176-Location" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV52XZW0XqZWcXQxlwc1yn05c5W8WW1lSLjcrxw.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y9f08lSf751QYmnQdV52XZW0XqZWcXQxlwc1yn05c5W8WW1lSLjcrxw.html#colorlinks'" type="checkbox" name="n6" checked="checked"><span class="checkmark"></span>Locatie</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyl0f7X0QYZlQqQ0.html#colorlinks" class="pagelock underlinedlink   ">
+
+Reset
+
+</a>
+</div>
+
+
+
+
+</div>
+    <div class="footerLinkList">
+
+
+
+<div data-id="" class="hasHelp headlineLink skipFor">
+<label  class="bl" title="Toon extra reserveringen">
+
+Toon extra reserveringen
+<span class="helpicon"></span> <span class="linkhelp">Naast de normale reserveringen, is het mogelijk om extra type reserveringen te tonen.</span>
+</label>
+</div>
+
+
+
+
+
+<div data-id="" class="hasHelp lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyh0f7X0QYZvQQc.html#colorlinks" class="pagelock checkwrap   ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyh0f7X0QYZvQQc.html#colorlinks'" type="checkbox" name="n7" ><span class="checkmark"></span>Mijn reserveringen</label>
+<span class="helpicon"></span> <span class="linkhelp">Toon reserveringen die ik persoonlijk heb gemaakt.</span>
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="hasHelp lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyw0f7X0QYZrQoxQo.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyw0f7X0QYZrQoxQo.html#colorlinks'" type="checkbox" name="n7" checked="checked"><span class="checkmark"></span>Informatie reserveringen</label>
+<span class="helpicon"></span> <span class="linkhelp">Toont bijv. vakantiedagen en speciale dagen.</span>
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="headlineLink skipFor">
+<label  class="bl" title="Reserveringsinformatie">
+
+Reserveringsinformatie
+
+</label>
+</div>
+
+
+
+
+
+<div data-id="" class="hasHelp lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZnQnQc.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZnQnQc.html#colorlinks'" type="checkbox" name="n7" checked="checked"><span class="checkmark"></span>Toon gezochte objecten</label>
+<span class="helpicon"></span> <span class="linkhelp">Toont gezochte objecten in het rooster is een zichtbaar type.</span>
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="hasHelp lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyc0f7X0QYZbQQo.html#colorlinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyc0f7X0QYZbQQo.html#colorlinks'" type="checkbox" name="n7" checked="checked"><span class="checkmark"></span>Toon tijd</label>
+<span class="helpicon"></span> <span class="linkhelp">Toont begin- en eindtijd op de reservering</span>
+</a>
+</div>
+
+
+
+<div>
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyc0f7X0QYZbQqQc.html#colorlinks" class="pagelock checkwrap radiowrap linksub ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyc0f7X0QYZbQqQc.html#colorlinks'" type="radio" name="n7" ><span class="checkmark radiomark"></span>Kort: 17 (h)</label>
+
+</a>
+
+
+
+
+
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyc0f7X0QYZbQqQo.html#colorlinks" class="pagelock checkwrap radiowrap linksub bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyc0f7X0QYZbQqQo.html#colorlinks'" type="radio" name="n7" checked="checked"><span class="checkmark radiomark"></span>Lang: 17:45 (hh:mm)</label>
+
+</a>
+
+
+
+</div>
+
+</div>
+    
+ 
+    <div class="rescontenttitle rescontentpadd">Stijl</div>
+    <div class="footerLinkList">
+
+
+
+<div data-id="" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZpQQc.html#colorlinks" class="pagelock checkwrap   ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZpQQc.html#colorlinks'" type="checkbox" name="n8" ><span class="checkmark"></span>Stem de regelafstand af op de lettertype grootte</label>
+
+</a>
+</div>
+
+
+
+
+ 
+<div data-id="" class="headlineLink">
+<label  for="te_link_9"  class="bl" title="Tekst layout">
+
+Tekst layout
+
+</label>
+</div>
+
+<select id="te_link_9" data-name=""  class="droplink ">
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZkQQ0.html#colorlinks">Standaard</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZkQQc.html#colorlinks">Één kolom per regel</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html#colorlinks" SELECTED>Een type per regel</option>
+</select>
+
+
+</div>
+    <div class="footerLinkList">
+
+
+
+<div data-id="" class="headlineLink skipFor">
+<label  class="bl" title="Tekstuitlijning">
+
+Tekstuitlijning
+
+</label>
+</div>
+
+
+
+<div>
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyc0f7X0QYZlQQo.html#colorlinks" class="pagelock checkwrap radiowrap  ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyc0f7X0QYZlQQo.html#colorlinks'" type="radio" name="n10" ><span class="checkmark radiomark"></span>Links uitlijnen</label>
+
+</a>
+
+
+
+
+
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html#colorlinks" class="pagelock checkwrap radiowrap  bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html#colorlinks'" type="radio" name="n10" checked="checked"><span class="checkmark radiomark"></span>Midden uitlijnen</label>
+
+</a>
+
+
+
+</div>
+
+</div>
+    <div class="footerLinkList">
+
+
+
+<div data-id="" class="headlineLink skipFor">
+<label  class="bl" title="Lettertype grootte 13">
+
+Lettertype grootte 13
+
+</label>
+</div>
+
+
+
+
+
+<div data-id="" class="">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZoQQ51.html#colorlinks" class="pagelock underlinedlink   ">
+
+Vergroot lettertype grootte
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZoQQ55.html#colorlinks" class="pagelock underlinedlink   ">
+
+Verklein lettertype grootte
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZoQQ57.html#colorlinks" class="pagelock underlinedlink   ">
+
+Standaard lettertype grootte
+
+</a>
+</div>
+
+
+
+
+</div>
+  </div>
+  <div class="flinks" id="mergelinksElement">
+  <div class="rescontenttitle">Pagina</div>
+  <div class="footerLinkList">
+
+
+ 
+<div data-id="" class="hasHelp headlineLink">
+<label  for="te_link_13"  class="bl" title="Algemene pagina-indeling">
+
+Algemene pagina-indeling
+<span class="helpicon"></span> <span class="linkhelp">Deze instelling bepaalt hoe reserveringen over het algemeen worden weergegeven: <br> <b>Datum weergaven</b>: toont reserveringen van dag tot dag, het meest voorkomende overzicht. <br> <b>Dagoverzicht</b>: toont alle reserveringen voor het geselecteerde tijdsbestek, gegroepeerd op weekdag. <br> <b>Weekoverzicht</b>: toont reserveringen gegroepeerd op week. <br> <b>Maandoverzicht</b>: toont reserveringen gegroepeerd op maand. <br> <b>Jaaroverzicht</b>: toont reserveringen gegroepeerd op jaar.</span>
+</label>
+</div>
+
+<select id="te_link_13" data-name=""  class="droplink ">
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QYZlQ0.html#mergelinks" SELECTED>Datum weergaven</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QYZlQ5.html#mergelinks">Dagoverzicht</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QYZlQ6.html#mergelinks">Weekoverzicht</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QYZlQ7.html#mergelinks">Maandoverzicht</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QYZlQ8.html#mergelinks">Jaaroverzicht</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QYZlQ9.html#mergelinks">Jaar &amp; Week</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QYZlQ1.html#mergelinks">Jaar &amp; Maand</option>
+</select>
+
+
+</div>
+  <div class="footerLinkList">
+
+
+
+<div data-id="" class="hasHelp lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyn0f7X0QYZbQQc.html#mergelinks" class="pagelock checkwrap   ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyn0f7X0QYZbQQc.html#mergelinks'" type="checkbox" name="n14" ><span class="checkmark"></span>Verberg lege weken</label>
+<span class="helpicon"></span> <span class="linkhelp">Verberg weken die geen reserveringen hebben.</span>
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZyQQc.html#mergelinks" class="pagelock checkwrap   ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyu0f7X0QYZyQQc.html#mergelinks'" type="checkbox" name="n14" ><span class="checkmark"></span>Gelijnd</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="hasHelp lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyl0f7X0QYZmQQo.html#mergelinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyl0f7X0QYZmQQo.html#mergelinks'" type="checkbox" name="n14" checked="checked"><span class="checkmark"></span>Toon klok</label>
+<span class="helpicon"></span> <span class="linkhelp">Toon de tijd in de linker benedenhoek van de pagina.</span>
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="hasHelp lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyy0f7X0QYZyQQc.html#mergelinks" class="pagelock checkwrap   ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyy0f7X0QYZyQQc.html#mergelinks'" type="checkbox" name="n14" ><span class="checkmark"></span>Één rooster voor elk gezocht item</label>
+<span class="helpicon"></span> <span class="linkhelp">Maakt een apart rooster voor elk geselecteerd item in de zoekfase.</span>
+</a>
+</div>
+
+
+
+
+</div>
+  <div class="footerLinkList nomargin footerColumnTwo">
+
+
+ 
+<div data-id="" class="headlineLink">
+<label  for="te_link_16"  class="bl hasHelp " title="Rijtitel">
+
+Rijtitel
+<span class="helpicon"></span> <span class="linkhelp">Bepaalt wat er als rijen in het rooster wordt weergegeven. <br> <b>Uren</b> is de meest voorkomende instelling, het toont uren. <br> <b>Gezochte items</b> toont alleen de gezochte objecten, zelfs zonder reserveringen. <br> <b>Types</b> toont alle objecten voor dat type, maar alleen als ze reserveringen hebben.</span>
+</label>
+
+
+<select id="te_link_16" data-name=""  class="droplink ">
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZxQnQ0.html#mergelinks" SELECTED>Uren</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZxQnQW5.html#mergelinks">Gezochte items</option>
+    </select>
+    </div>
+
+
+
+
+<div data-id="" class="headlineLink linkhelpleft">
+<label  for="te_link_17"  class="bl hasHelp " title="Kolomtitel">
+
+Kolomtitel
+<span class="helpicon"></span> <span class="linkhelp">Bepaalt wat er als kolommen in het rooster wordt weergegeven. <br> Datums, weekdagen, weeknummers worden getoond op basis van de <b>Algemene pagina-indeling</b>, maar het is mogelijk om items toe te voegen zoals: <br> <b>Gezochte items</b>, wanneer uren zijn geselecteerd als rijkoptekst of weekdagen, weeknummer, datums wanneer <b>Types</b> en <b>MISSING|SearchItem |</b> zijn geselecteerd als rijen.</span>
+</label>
+
+
+<select id="te_link_17" data-name=""  class="droplink ">
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fqyqcf7x0QYZxQ0Q0ZXZn0Qn.html#mergelinks" SELECTED>Datum</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fxyqnf7Z0QY0xQQQW6XZq0cnZ.html#mergelinks">Datum &amp; Gezochte items</option>
+</select>
+
+</div>
+<br class="clearBoth"></div>
+  <div class="footerLinkList">
+
+
+</div>
+  <div class="footerLinkList nomargin">
+
+
+
+<div data-id="" class="hasHelp lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZym0f7X0QYZkQQo.html#mergelinks" class="pagelock checkwrap  linkhelpleft bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZym0f7X0QYZkQQo.html#mergelinks'" type="checkbox" name="n18" checked="checked"><span class="checkmark"></span>Breedte aanpassen aan scherm</label>
+<span class="helpicon"></span> <span class="linkhelp">Voorheen <b>Één week per rij</b> genoemd. <br> Indien geselecteerd, wordt de breedte aangepast aan het scherm en wordt de instelling <b>Kolombreedte</b> niet gebruikt. <br> Geeft maximaal 5 kolommen weer als <b>Maandag - Vrijdag</b> is geselecteerd en maximaal 7 als <b>Maandag - Zondag</b> is geselecteerd in <b>Weekdagen bereik</b> instelling.</span>
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="hasHelp lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyf0f7X0QYZbQqQc.html#mergelinks" class="pagelock checkwrap   ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyf0f7X0QYZbQqQc.html#mergelinks'" type="checkbox" name="n18" ><span class="checkmark"></span>Horizontaal scrollen</label>
+<span class="helpicon"></span> <span class="linkhelp">Horizontaal scrollen in rooster.</span>
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="hasHelp lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyf0f7X0QYZbQqfQc.html#mergelinks" class="pagelock checkwrap  dimmed ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyf0f7X0QYZbQqfQc.html#mergelinks'" type="checkbox" name="n18" ><span class="checkmark"></span>Tonen weken</label>
+<span class="helpicon"></span> <span class="linkhelp">Tonen weken. Horizontaal scrollen in rooster.</span>
+</a>
+</div>
+
+
+
+
+</div>
+  <form method="get" action="" id="gsizeform">
+   <div class="footerLinkList">
+	<table cellpadding=0 cellspacing=0><tr><td class="footertd">
+    <label for="gheigth">Rijhoogte</label></td><td class="footertd">
+    <select name="gheigth" id="gheigth" onchange="updateSizelink('https://cloud.timeedit.net/nl_utwente/web/student/ri.html?h=t&amp;sid=13&amp;p=0.w%2C0.w','#mergelinks')">
+      <option value="20">20</option><option value="30">30</option><option value="40">40</option><option value="50">50</option><option SELECTED value="60">60</option><option value="70">70</option><option value="80">80</option><option value="90">90</option><option value="100">100</option><option value="110">110</option><option value="120">120</option><option value="130">130</option><option value="140">140</option><option value="150">150</option><option value="160">160</option><option value="170">170</option><option value="180">180</option><option value="190">190</option><option value="200">200</option><option value="210">210</option><option value="220">220</option><option value="230">230</option><option value="240">240</option><option value="250">250</option><option value="260">260</option><option value="270">270</option><option value="280">280</option><option value="290">290</option><option value="300">300</option><option value="350">350</option><option value="400">400</option><option value="450">450</option><option value="500">500</option><option value="550">550</option><option value="600">600</option><option value="650">650</option><option value="700">700</option><option value="750">750</option><option value="800">800</option><option value="900">900</option><option value="1000">1000</option><option value="1100">1100</option><option value="1200">1200</option>   
+	</select>
+	</tr><tr><td class="footertd dimmed">
+    <label for="gwidth">Kolombreedte</label></td><td class="footertd">
+    <select name="gwidth" id="gwidth" class=" dimmed" onchange="updateSizelink('https://cloud.timeedit.net/nl_utwente/web/student/ri.html?h=t&amp;sid=13&amp;p=0.w%2C0.w','#mergelinks')">
+        <option  value="20">20</option>
+        <option  value="30">30</option>
+        <option  value="40">40</option>
+        <option  value="50">50</option>
+        <option  value="60">60</option>
+        <option  value="70">70</option>
+        <option  value="80">80</option>
+        <option  value="90">90</option>
+        <option  value="100">100</option>
+        <option  value="110">110</option>
+        <option  value="120">120</option>
+        <option SELECTED value="130">130</option>
+        <option  value="140">140</option>
+        <option  value="150">150</option>
+        <option  value="160">160</option>
+        <option  value="170">170</option>
+        <option  value="180">180</option>
+        <option  value="190">190</option>
+        <option  value="200">200</option>
+        <option  value="210">210</option>
+        <option  value="220">220</option>
+        <option  value="230">230</option>
+        <option  value="240">240</option>
+        <option  value="250">250</option>
+        <option  value="260">260</option>
+        <option  value="270">270</option>
+        <option  value="280">280</option>
+        <option  value="290">290</option>
+        <option  value="300">300</option>
+        <option  value="350">350</option>
+        <option  value="400">400</option>
+        <option  value="450">450</option>
+        <option  value="500">500</option>
+        <option  value="550">550</option>
+        <option  value="600">600</option>
+        <option  value="650">650</option>
+        <option  value="700">700</option>
+        <option  value="750">750</option>
+        <option  value="800">800</option>
+        <option  value="900">900</option>
+        <option  value="1000">1000</option>
+        <option  value="1100">1100</option>
+        <option  value="1200">1200</option>
+	</select>
+	</tr><tr><td class="footertd dimmed">
+	<label for="fwidth">Rijtitel breedte</label></td><td class="footertd">
+    <select name="fwidth" id="fwidth" class=" dimmed" onchange="updateSizelink('https://cloud.timeedit.net/nl_utwente/web/student/ri.html?h=t&amp;sid=13&amp;p=0.w%2C0.w','#mergelinks')">
+      <option value="20">20</option><option value="30">30</option><option value="40">40</option><option value="50">50</option><option value="60">60</option><option value="70">70</option><option value="80">80</option><option value="90">90</option><option value="100">100</option><option value="110">110</option><option SELECTED value="120">120</option><option value="130">130</option><option value="140">140</option><option value="150">150</option><option value="160">160</option><option value="170">170</option><option value="180">180</option><option value="190">190</option><option value="200">200</option><option value="210">210</option><option value="220">220</option><option value="230">230</option><option value="240">240</option><option value="250">250</option><option value="260">260</option><option value="270">270</option><option value="280">280</option><option value="290">290</option><option value="300">300</option><option value="350">350</option><option value="400">400</option><option value="450">450</option><option value="500">500</option><option value="550">550</option><option value="600">600</option><option value="650">650</option><option value="700">700</option><option value="750">750</option><option value="800">800</option><option value="900">900</option><option value="1000">1000</option><option value="1100">1100</option><option value="1200">1200</option>   
+	</select>
+	</td></tr></table>
+
+
+
+
+<div data-id="" class="">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html#mergelinks" class="pagelock underlinedlink   ">
+
+Herstel kolomgrootte
+
+</a>
+</div>
+
+
+
+
+   </div>
+   </form>
+  <div class="footerLinkList">
+
+
+ 
+<div data-id="" class="hasHelp headlineLink">
+<label  for="te_link_22"  class="bl" title="Herschik reserveringen">
+
+Herschik reserveringen
+<span class="helpicon"></span> <span class="linkhelp">Herschik reserveringen in een kolom op basis van de alfabetische volgorde van de itemnaam.</span>
+</label>
+</div>
+
+<select id="te_link_22" data-name=""  class="droplink ">
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f7yx0f770QYZbQlQ9WXZ.html#mergelinks">Cursus</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f5yx5f7W0QYZbQlQ94XZ10.html#mergelinks">Cursusonderdeel</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f6yx0f7W0QYZbQlQ90XZ2.html#mergelinks">Werkvorm</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f5yx4f7W0QYZbQlQ12XZ90.html#mergelinks">Herkansing</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyx0f720QYZbQlQ8WX.html#mergelinks">Zaal</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f0yx0f760QYZbQlQ8WXZ.html#mergelinks">Gebouw</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f4yx0f780QYZbQlQ7WXZ.html#mergelinks">Docent</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f2yx0f750QYZbQlQ8WXZ1.html#mergelinks">Locatie</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html#mergelinks" SELECTED>Standaard</option>
+</select>
+
+
+</div>
+  <div class="footerLinkList">
+
+
+ 
+<div data-id="" class="hasHelp headlineLink">
+<label  for="te_link_24"  class="bl" title="Maximaal aantal kolommen">
+
+Maximaal aantal kolommen
+<span class="helpicon"></span> <span class="linkhelp">Maximaal aantal kolommen voordat overlappende reserveringen boven op elkaar worden weergegeven.</span>
+</label>
+</div>
+
+<select id="te_link_24" data-name=""  class="droplink ">
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyx0f7X0QYZbQbcQ0.html#mergelinks">Uit</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyx0f7X0QYZbQbcQ6.html#mergelinks">1</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyx0f7X0QYZbQbcQ7.html#mergelinks">2</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyx0f7X0QYZbQbcQ8.html#mergelinks">3</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyx0f7X0QYZbQbcQ9.html#mergelinks">4</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyx0f7X0QYZbQbcQ1.html#mergelinks">5</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyx0f750QYZbQbcQ5X.html#mergelinks">10</option>
+</select>
+
+
+</div>
+  
+  <div class="footerLinkList">
+
+
+
+<div data-id="" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5yZpYof7Q0QZX0Qf.html#mergelinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5yZpYof7Q0QZX0Qf.html#mergelinks'" type="checkbox" name="n24" checked="checked"><span class="checkmark"></span>Toon grafisch rooster</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyx0f7X0QYZmQQo.html#mergelinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyx0f7X0QYZmQQo.html#mergelinks'" type="checkbox" name="n24" checked="checked"><span class="checkmark"></span>Bureaubladmodus</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZyQQ7.html#mergelinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZyQQ7.html#mergelinks'" type="checkbox" name="n24" checked="checked"><span class="checkmark"></span>Tonen Koptekst</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZyQQ6.html#mergelinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZyQQ6.html#mergelinks'" type="checkbox" name="n24" checked="checked"><span class="checkmark"></span>Tonen Ondertekst</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZbQoQ6.html#mergelinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZbQoQ6.html#mergelinks'" type="checkbox" name="n24" checked="checked"><span class="checkmark"></span>Tonen Titel</label>
+
+</a>
+</div>
+
+
+
+
+</div>
+
+  <form method="get" action="" id="gtitle"  onsubmit="return false" class="clearBoth">
+   <div class="footerLinkList">
+    <label for="gtitlevalue" class="bl headlineLink hasHelp">Titel
+     
+    </label>
+    <input type="text" name="title" id="gtitlevalue" value="" style="width:320px">
+    <input type="button" class="green" style="width:327px" id="titlegenerate" onclick="updateTitlelink('https://cloud.timeedit.net/nl_utwente/web/student/ri.html?h=t&amp;sid=13&amp;p=0.w%2C0.w','#mergelinks')" title="Titel aanpassen" value="Titel aanpassen">
+   </div>
+  </form>
+  
+  <div class="rescontenttitle">Tijd</div>
+  <div class="footerLinkList">
+
+
+ 
+<div data-id="" class="hasHelp headlineLink">
+<label  for="te_link_27"  class="bl" title="Weekdagen bereik">
+
+Weekdagen bereik
+<span class="helpicon"></span> <span class="linkhelp">Voorheen <b>Toon zaterdag en zondag</b> genoemd. Laat u kiezen welke weekdagen u wilt tonen.</span>
+</label>
+</div>
+
+<select id="te_link_27" data-name=""  class="droplink ">
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fQyf0f7m0QYZfQQoZfXZW.html#mergelinks">Maandag - Zondag</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fQyf0f7m0QYZfQQ5ZfXZW.html#mergelinks" SELECTED>Maandag - Vrijdag</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fQyfXf7m0QY69QX8ZfXZ005QZX7XoXf.html#mergelinks">Maandag - Zaterdag</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fQyf0f7m0QYZfQQoZfXZ0.html#mergelinks">Maandag</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fQyf0f7m0QYZfQQoZfXZ5.html#mergelinks">Dinsdag</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fQyf0f7m0QYZfQQoZfXZ6.html#mergelinks">Woensdag</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fQyf0f7m0QYZfQQoZfXZ7.html#mergelinks">Donderdag</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fQyf0f7m0QYZfQQoZfXZ8.html#mergelinks">Vrijdag</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fQyf0f7m0QYZfQQoZfXZ9.html#mergelinks">Zaterdag</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyf0f7X0QYZfQQo.html#mergelinks">Zondag</option>
+    </select>
+    
+
+
+<div>
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html#mergelinks" class="pagelock checkwrap radiowrap  bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html#mergelinks'" type="radio" name="n26" checked="checked"><span class="checkmark radiomark"></span>Toon zaterdag &amp;amp; zondag indien er reserveringen zijn</label>
+
+</a>
+
+
+
+
+
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyf0f7X0QYZfQQ5.html#mergelinks" class="pagelock checkwrap radiowrap  ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyf0f7X0QYZfQQ5.html#mergelinks'" type="radio" name="n26" ><span class="checkmark radiomark"></span>Toon alleen reserveringen binnen de weekdagen</label>
+
+</a>
+
+
+
+</div>
+
+</div>
+  <div class="footerLinkList">
+
+
+
+<div data-id="" class="hasHelp lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyo0f7X0QYZjQfQo.html#mergelinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyo0f7X0QYZjQfQo.html#mergelinks'" type="checkbox" name="n27" checked="checked"><span class="checkmark"></span>Volledige weken</label>
+<span class="helpicon"></span> <span class="linkhelp">Toont de volledige week, zelfs als slechts een deel van de week is geselecteerd.</span>
+</a>
+</div>
+
+
+
+
+</div>
+  <form method="get" action="" id="gtimeform">
+    <div class="footerLinkList">
+	<div class="headlineLink hasHelp">Tijdsspanne  <span class="helpicon"></span> <span class="linkhelp">Bepaalt tussen welke tijden reserveringen worden weergegeven.</span></div>
+  	<table cellpadding="0" cellspacing="0"><tr><td class="footertd">
+  	<label for="gstarttime">Starttijd</label></td><td class="footertd">
+    <select name="gstarttime" id="gstarttime"  onchange="updateTimelink('https://cloud.timeedit.net/nl_utwente/web/student/ri.html?h=t&amp;sid=13&amp;p=0.w%2C0.w','#mergelinks')">
+      <option value="0.00">0</option><option value="1.00">1</option><option value="2.00">2</option><option value="3.00">3</option><option value="4.00">4</option><option value="5.00">5</option><option value="6.00">6</option><option value="7.00">7</option><option SELECTED value="8.00">8</option><option value="9.00">9</option><option value="10.00">10</option><option value="11.00">11</option><option value="12.00">12</option><option value="13.00">13</option><option value="14.00">14</option><option value="15.00">15</option><option value="16.00">16</option><option value="17.00">17</option><option value="18.00">18</option><option value="19.00">19</option><option value="20.00">20</option><option value="21.00">21</option><option value="22.00">22</option><option value="23.00">23</option><option value="24.00">24</option>   
+	</select>
+	</td></tr><tr><td class="footertd"><label for="gendtime">Eindtijd</label></td><td class="footertd">
+    <select name="gendtime" id="gendtime" onchange="updateTimelink('https://cloud.timeedit.net/nl_utwente/web/student/ri.html?h=t&amp;sid=13&amp;p=0.w%2C0.w','#mergelinks')">
+      <option value="0.00">0</option><option value="1.00">1</option><option value="2.00">2</option><option value="3.00">3</option><option value="4.00">4</option><option value="5.00">5</option><option value="6.00">6</option><option value="7.00">7</option><option value="8.00">8</option><option value="9.00">9</option><option value="10.00">10</option><option value="11.00">11</option><option value="12.00">12</option><option value="13.00">13</option><option value="14.00">14</option><option value="15.00">15</option><option value="16.00">16</option><option value="17.00">17</option><option SELECTED value="18.00">18</option><option value="19.00">19</option><option value="20.00">20</option><option value="21.00">21</option><option value="22.00">22</option><option value="23.00">23</option><option value="24.00">24</option>   
+	</select>
+	</td></tr>
+   </table>
+
+
+
+
+<div data-id="" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZjQQo.html#mergelinks" class="pagelock checkwrap   bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZjQQo.html#mergelinks'" type="checkbox" name="n28" checked="checked"><span class="checkmark"></span>Het tijdsbestek van de kalender uitbreiden om alle reserveringen weer te geven.</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZjQoQc.html#mergelinks" class="pagelock checkwrap   ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZjQoQc.html#mergelinks'" type="checkbox" name="n28" ><span class="checkmark"></span>Toon alleen reserveringen binnen de start- en eindtijd</label>
+
+</a>
+</div>
+
+
+
+
+
+<div data-id="" class="lefttext">
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZjQobQc.html#mergelinks" class="pagelock checkwrap   ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyq0f7X0QYZjQobQc.html#mergelinks'" type="checkbox" name="n28" ><span class="checkmark"></span>Toon reserveringen die beginnen binnen de start- en eindtijd</label>
+
+</a>
+</div>
+
+
+
+
+ 
+<div data-id="" class="headlineLink">
+<label  for="te_link_30"  class="bl" title="Relatief begin">
+
+Relatief begin
+
+</label>
+</div>
+
+<select id="te_link_30" data-name=""  class="droplink ">
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZya0f7X0QYZcQQ0.html#mergelinks">Uit</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZya0f7X0QYZcQQ0Xo.html#mergelinks">Nu 0 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5foya0f7X0QYZcQQW50XZ.html#mergelinks">Nu -10 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5foya0f7X0QYZcQQW59XZ.html#mergelinks">Nu -15 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5foya0f7X0QYZcQQW60XZ.html#mergelinks">Nu -20 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5foya0f7X0QYZcQQW70XZ.html#mergelinks">Nu -30 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5foya0f7X0QYZcQQW80XZ.html#mergelinks">Nu -40 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5foya0f7X0QYZcQQW89XZ.html#mergelinks">Nu -45 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5foya0f7X0QYZcQQW90XZ.html#mergelinks">Nu -50 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5foya0f7X0QYZcQQW10XZ.html#mergelinks">Nu -60 minuten</option>
+    </select>
+    
+
+
+
+ 
+<div data-id="" class="headlineLink">
+<label  for="te_link_31"  class="bl" title="Relatief einde">
+
+Relatief einde
+
+</label>
+</div>
+
+<select id="te_link_31" data-name=""  class="droplink ">
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZya0f7X0QYZcQQ0.html#mergelinks">Uit</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZya0f7X0QYZcQQoX0.html#mergelinks">Nu +0 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZya0f790QYZcQQoX5X.html#mergelinks">Nu +15 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZya0f700QYZcQQoX7X.html#mergelinks">Nu +30 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZya0f790QYZcQQoX8X.html#mergelinks">Nu +45 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZya0f700QYZcQQoX1X.html#mergelinks">Nu +60 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZya0f700QYZcQQoX4X.html#mergelinks">Nu +90 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f0ya0f760QYZcQQoX5XZ.html#mergelinks">Nu +120 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f0ya0f780QYZcQQoX6XZ.html#mergelinks">Nu +240 minuten</option>
+
+<option value="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5f0ya0f730QYZcQQoX8XZ.html#mergelinks">Nu +480 minuten</option>
+</select>
+
+
+   </div>
+   </form>
+
+  <div class="rescontenttitle">Tijd formaat</div><div class="footerLinkList">
+
+
+
+<div data-id="" class="hasHelp headlineLink skipFor">
+<label  class="bl" title="Datum">
+
+Datum
+<span class="helpicon"></span> <span class="linkhelp">Voorheen <b>Korte datumnotatie</b> genoemd.
+</span>
+</label>
+</div>
+
+
+
+<div>
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZmQQ5.html#mergelinks" class="pagelock checkwrap radiowrap  ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZmQQ5.html#mergelinks'" type="radio" name="n31" ><span class="checkmark radiomark"></span>Kort: 31/10 (d-m)</label>
+
+</a>
+
+
+
+
+
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html#mergelinks" class="pagelock checkwrap radiowrap  bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html#mergelinks'" type="radio" name="n31" checked="checked"><span class="checkmark radiomark"></span>Lang: 31-10-2026 (dd-mm-yyyy)</label>
+
+</a>
+
+
+
+
+
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZmQQ6.html#mergelinks" class="pagelock checkwrap radiowrap  ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZmQQ6.html#mergelinks'" type="radio" name="n31" ><span class="checkmark radiomark"></span>Okt 31 (mmm d)</label>
+
+</a>
+
+
+
+
+
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZmQQ7.html#mergelinks" class="pagelock checkwrap radiowrap  ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZmQQ7.html#mergelinks'" type="radio" name="n31" ><span class="checkmark radiomark"></span>31 Okt (d mmm)</label>
+
+</a>
+
+
+
+</div>
+
+
+
+
+
+<div data-id="" class="hasHelp headlineLink skipFor">
+<label  class="bl" title="Weekdag">
+
+Weekdag
+<span class="helpicon"></span> <span class="linkhelp">Voorheen <b>Korte weekdagen naam</b> genoemd.</span>
+</label>
+</div>
+
+
+
+<div>
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html#mergelinks" class="pagelock checkwrap radiowrap  bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyQ0f7X0QY.html#mergelinks'" type="radio" name="n32" checked="checked"><span class="checkmark radiomark"></span>Kort: Ma, Di, Wo, Do, Vr</label>
+
+</a>
+
+
+
+
+
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyl0f7X0QYZcQmQo.html#mergelinks" class="pagelock checkwrap radiowrap  ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyl0f7X0QYZcQmQo.html#mergelinks'" type="radio" name="n32" ><span class="checkmark radiomark"></span>Lang: Maandag, Dinsdag, Woensdag, Donderdag, Vrijdag</label>
+
+</a>
+
+
+
+</div>
+
+
+
+
+
+<div data-id="" class="hasHelp headlineLink skipFor">
+<label  class="bl" title="Uren">
+
+Uren
+<span class="helpicon"></span> <span class="linkhelp">Voorheen <b>Kort uurnotatie</b> genoemd.</span>
+</label>
+</div>
+
+
+
+<div>
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZmQqQc.html#mergelinks" class="pagelock checkwrap radiowrap  bthigh">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZmQqQc.html#mergelinks'" type="radio" name="n33" checked="checked"><span class="checkmark radiomark"></span>Kort: 17 (h)</label>
+
+</a>
+
+
+
+
+
+
+
+<a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZmQqQo.html#mergelinks" class="pagelock checkwrap radiowrap  ">
+
+<label><input aria-hidden="true" tabindex="-1" onClick="window.location='https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyb0f7X0QYZmQqQo.html#mergelinks'" type="radio" name="n33" ><span class="checkmark radiomark"></span>Lang: 17:45 (hh:mm)</label>
+
+</a>
+
+
+
+</div>
+
+
+
+
+</div>
+    </div>
+  <div class="flinks" id="adminlinksElement">
+  </div>
+</div>
+
+
+</div>
+
+    <div class="fullscreenheader text ac iosboxvisible"></div>
+<a href="#iCalDialogContent" class="iCalDialog clickable rightHeader headerbutton iCalDialogInside  ac iosboxvisible"><span class="tesprite tesprite-date tespriteinlineblock"></span><span>Abonneren</span></a>
+
+<div id="exporterwrap" class="topmenu topmenuright hidden">
+  <h3>Download</h3>
+  <div class="smallhelp"></div>
+       <a href="#printdialog" data-url="https://cloud.timeedit.net/nl_utwente/web/student/ri.pdf?h=t&amp;sid=13&amp;p=0.w%2C0.w&amp;mw=300" data-name="PDF document (Print)" data-create="Maak PDF" data-target="print" class="bl2 formatLinksItem printlink"><span class="tesprite tesprite-page_pdf tespritefloatleft"></span>PDF document (Print)</a>
+       <a href="https://cloud.timeedit.net/nl_utwente/web/student/ri.ics?sid=13&amp;p=0.w%2C0.w&amp;l=nl&amp;e=261031&amp;enol=t&amp;ku=6854071e36ce1ca7f5b16aa0&amp;k=1F4C6FBB52ADD763764A4DD27288A6E8" class="bl2 formatLinksItem" title="iCal"><span class="tesprite tesprite-page_ical tespritefloatleft"></span> iCal</a>
+       <a href="#printdialog" data-excel="y" data-url="https://cloud.timeedit.net/nl_utwente/web/student/ri.xlsx?h=t&amp;sid=13&amp;p=0.w%2C0.w&amp;mw=300" data-name="Excel (xlsx)" data-create="Maak Excel (xlsx)" data-base="https://cloud.timeedit.net/nl_utwente/web/student/ri.xlsx?h=t&amp;sid=13&amp;p=0.w%2C0.w&amp;mw=300" data-target="print" class="bl2 formatLinksItem  printlink"><span class="tesprite tesprite-page_white_excel tespritefloatleft"></span> Excel (xlsx)</a>
+       <a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5fZyf0f7X0QYZvQQ700.txt" class="bl2 formatLinksItem" target="_blank" aria-label="Openen in nieuw scherm" title="Tekst"><span class="tesprite tesprite-page_txt tespritefloatleft"></span> Tekst</a>
+       <a href="https://cloud.timeedit.net/nl_utwente/web/student/ri1Y5ffyn7f7v0QYZbQ0QXZXZQ00y.csv" class="bl2 formatLinksItem" target="_blank" aria-label="Openen in nieuw scherm" title="CSV"><span class="tesprite tesprite-page_csv tespritefloatleft"></span> CSV</a>
+       <a href="https://cloud.timeedit.net/nl_utwente/web/student/ri.html?h=f&amp;sid=13&amp;p=0.w%2C0.w&amp;h2=2" class="bl2 formatLinksItem" target="_blank" aria-label="Openen in nieuw scherm" title="Volledig scherm"><span class="tesprite tesprite-fullscreen tespritefloatleft"></span> Volledig scherm</a>
+       <a href="#printdialog" data-excel="y" data-url="https://cloud.timeedit.net/nl_utwente/web/student/ri.xls?h=t&amp;sid=13&amp;p=0.w%2C0.w&amp;mw=300" data-name="Excel &#39;97 (xls)" data-create="Maak Excel &#39;97 (xls)" data-base="https://cloud.timeedit.net/nl_utwente/web/student/ri.xls?h=t&amp;sid=13&amp;p=0.w%2C0.w&amp;mw=300" data-target="print" class="bl2 formatLinksItem smallhelp printlink"><span class="tesprite tesprite-page_white_excel tespritefloatleft"></span> Excel &#39;97 (xls)</a>
+</div>
+
+<div id="filterwrap" class="topmenu topmenuright hidden">
+  <h3>Filter</h3>
+   <ul class="footerLinkList">
+     <li>Kan niet het rooster filteren indien u gezocht heeft voor een van de volgende: </li>
+     <li class="listDisc">Meer dan 20 objecten</li>
+     <li class="listDisc">Categorie rooster</li>
+     <li class="listDisc">Scheidingsteken (+)</li>
+  </ul>
+</div>
+
+<div id="printwrap" class="topmenu topmenuright hidden">
+   <form id="printdialog" onsubmit="$('#pdfgenerate').click();return false;" method="get" action="" target="_blank">
+    <h3 id="printdialogtitle">PDF document (Print)</h3>
+    <div class="printsectionlong"><label for="pdftitle" class="bl printtitle">Titel</label>
+       <input type="text" name="title" id="pdftitle" value="">
+	</div>
+    <div class="printsection printpdf"><label for="pdfpagesize" class="printtitle">Papiergrootte</label>
+    <select name="pdfpagesize" id="pdfpagesize" class="selectMedium">
+		 <option  value="A1">A1</option>
+		 <option  value="A2">A2</option>
+		 <option  value="A3">A3</option>
+		 <option SELECTED value="A4">A4</option>
+		 <option  value="A5">A5</option>
+	</select>
+	</div>
+	<div class="printsection printpdf"><label for="pdfstanding" class="printtitle">Oriëntatie</label>
+    <select name="pdfstanding" id="pdfstanding" class="selectMedium">
+        <option value="t">Standaard</option>
+	    <option selected value="f">Liggend</option>
+	</select>
+	</div>
+	<div class="printsection printpdf"><label for="pdflined" class="printtitle">Lijnen</label>
+    <select name="pdflined" id="pdflined" class="selectMedium">
+        <option  selected  value="0">Uit</option>
+        <option  value="1">Gelijnd</option>
+        
+	</select>
+	</div>
+	<div class="printsection printpdf"><label for="pdffontsize" class="printtitle">Lettertype grootte</label>
+    <select name="pdffontsize" id="pdffontsize" class="selectMedium">
+        <option  value="5">5</option>
+        <option  value="6">6</option>
+        <option  value="7">7</option>
+        <option  value="8">8</option>
+        <option  selected  value="9">9</option>
+        <option  value="10">10</option>
+        <option  value="11">11</option>
+        <option  value="12">12</option>
+        <option  value="13">13</option>
+	</select>
+	</div>
+	<div class="printsection printpdf"><label for="pdfcolor" class="printtitle">Kleur</label>
+    <select name="pdfcolor" id="pdfcolor" class="selectMedium">
+        <option selected value="x89">Zwart en wit</option>
+        <option  value="x90">Omgekeerd zwart en wit</option>
+        <option value="">Ja</option>
+	</select>
+	</div>
+    <div class="printsection"><label for="pdfheader" class="printtitle">Koptekst en ondertekst</label>
+    <select name="pdfheader" id="pdfheader" class="selectMedium">
+        <option selected value="0">Beide</option>
+        <option value="1">Koptekst</option>
+        <option value="2">Ondertekst</option>
+        <option value="3">Uit</option>
+	</select>
+	</div>
+	<div class="printsection printpdf"><label for="pdfweeksperpage" class="printtitle">Weken per pagina</label>
+    <select name="pdfweeksperpage" id="pdfweeksperpage" class="selectMedium">
+        <option selected value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+	</select>
+	</div>
+	<div class="printsection printpdf"><label for="pdfcolumns" class="printtitle">Kolommen per pagina</label>
+    <select name="pdfcolumns" id="pdfcolumns" class="selectMedium">
+        <option selected value="">Standaard</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+        <option value="10">10</option>
+        <option value="11">11</option>
+        <option value="12">12</option>
+        <option value="13">13</option>
+        <option value="14">14</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+        <option value="50">50</option>
+        <option value="60">60</option>
+        <option value="70">70</option>
+        <option value="80">80</option>
+        <option value="90">90</option>
+        <option value="100">100</option>
+	</select>
+	</div>
+    <input type="button" id="pdfgenerate" class="greenbottom" onclick="updatePdflink('https://cloud.timeedit.net/nl_utwente/web/student/ri.pdf?h=t&amp;sid=13&amp;p=0.w%2C0.w&amp;mw=300','')" value="Maak PDF">
+   </form>
+</div>
+
+<div class="headerbutton btrFirst2 iosboxvisible">
+<a class="leftHeader clickable btr  ac" href="https://cloud.timeedit.net/nl_utwente/web/student/ri13566y665730Q02WQ06101Z7.html" aria-label="Ga naar vorige week"><span class="btrLeft">&nbsp;</span><div class="help">Ga naar vorige week</div></a>
+  <label class="leftHeader perioddropwrap select2nocheck leftHeaderSmall ac" aria-label="Verander periode">
+     <select class="clickable perioddropsmall" data-text="W 35"><option value="">W 35</option></select>
+     <div class="help">Verander periode</div>
+  </label>
+<a class="leftHeader clickable btr  ac" href="https://cloud.timeedit.net/nl_utwente/web/student/ri13560y667740Q05WQ06101Z1.html" aria-label="Ga naar volgende week"><span class="btrRight">&nbsp;</span><div class="help">Ga naar volgende week</div></a>
+<br class="clearBoth">
+</div>
+
+
+ <div id="iCalDialogContent" class="topmenu topmenuright hidden">
+     <h3>Abonneren</h3>
+     <label class="bl4">Tijd <select class="te-ui-select ui-corner-all timeselect" id="periodical" name="periodical"> 
+        <option value="https://cloud.timeedit.net/nl_utwente/web/student/ri6REDACTED.ics" selected="SELECTED" data-url="https://cloud.timeedit.net/nl_utwente/web/student/ri6REDACTED.ics">Relatief 4 weken</option>
+        <option value="https://cloud.timeedit.net/nl_utwente/web/student/ri6REDACTED.ics"  data-url="https://cloud.timeedit.net/nl_utwente/web/student/ri6REDACTED.ics">Huidige week - Hele week</option>
+     </select></label>
+     <label id="icaltext" for="icalurl"><span class="bl3">Kopieer en plak de volgende link in de kalenderapplicatie.</span></label>
+     <div class="icalflex"><input id="icalurl" onfocus="this.select();" class="icalurl" type="text" value="https://cloud.timeedit.net/nl_utwente/web/student/ri6REDACTED.ics">
+       <button class="shaded icalcopy" onclick="TEInfo.copy('#icalurl')">Kopie</button>
+     </div>
+     <div id="gcalwrap" class="gcal hidden">
+     <label for="icalurlgoogle" class="icalsubtext">Google Calendar ondersteunt niet meer dan 255 karakters, gebruik de URL hieronder.</label>
+     <div class="icalflex"><input id="icalurlgoogle" onfocus="this.select();" class="icalurl" type="text" value="https://cloud.timeedit.net/nl_utwente/web/student/ri6REDACTED.ics">
+       <button class="shaded icalcopy" onclick="TEInfo.copy('#icalurlgoogle')">Kopie</button>
+     </div>
+     </div>
+     <div class="smallhelp">Relatief 4 weken: Met een iCal-abonnement worden de schema&#39;s voor vier weken vooruit weergegeven.<br>Reserveringen die meer dan 14 dagen geleden plaatsvonden zijn niet toegevoegd in het abonnement</div>
+     <a id="icalurl2" href="https://cloud.timeedit.net/nl_utwente/web/student/ri6REDACTED.ics" class="icalsublink shaded">Abonnement iCal</a>
+     
+ </div>
+
+<div class="dateLimitUsed noZoom">
+  </div>
+  <div class="tespritefloat btrFirst">Datalimieten 01-09-2025 - 30-08-2026</div>
+  <br class="clearBoth">
+</div> 
+
+
+<div id="contents" role="main" class="ewrap expandtab2content" aria-labelledby="mainh1" data-hourwidth="32" data-linktores="">
+
+</div>
+
+
+
+<div id="customweeks" data-weeks=''></div>
+
+<script type="text/javascript">
+window.timers = window.timers || [];
+window.beforeload = window.beforeload || (new Date()).getTime();
+
+function loadScript(url, callback){
+    timers.push('loadscript ' + ((new Date()).getTime() - beforeload) + 'ms');
+    var script = document.createElement("script")
+    script.type = "text/javascript";
+    if (script.readyState){ 
+        script.onreadystatechange = function(){
+            if (script.readyState == "loaded" ||
+                    script.readyState == "complete"){
+                script.onreadystatechange = null;
+                callback();
+            }
+        };
+    } else {  
+        script.onload = function(){
+            callback();
+        };
+    }
+    script.src = url;
+    document.getElementsByTagName("head")[0].appendChild(script);
+}
+
+var loadMyRes = function() {
+    var sid = Qt.join('&sid', $('#linksdata').attr('data-sid'));
+    var url = 'my.html?so=5&p=0.w,0.w&max=5&part=t&step=3&g=f&ph=f' + sid;
+    $('#myreservationslist').load(url, function() { initEditField(); });
+    $('#myreservationsconfirmlist').load(url + '&conf=t', function() { initEditField(); });
+}
+
+var PageLoaderNext;
+function initAutoPager(nr, callback) {
+	var pages = $('#pagesData' + nr).attr('data-pagesjson');
+	try {
+		pages = jQuery.parseJSON(pages);
+	} catch(e) {
+		$("#errorPage" + nr).html('Invalid auto page info.' + e).fadeIn();
+	}
+	if(!pages) {
+	   return;
+	}
+	var loading = false;
+	var loadOK = true;
+	var next = pages.start;
+
+	function nextUrl() {
+		var link = $('#linksdata' + nr).attr('data-linksbase');
+		var url = link.split('?');
+		var path = url[1].split('&');
+		if (nr == "_o") {
+			setParam(path, 'start', next);
+		} else {
+			setParam(path, 'wls', next);
+		}
+		if ((next + pages.max) >= pages.total) {
+		  setParam(path, 'end', '1');
+		}
+		var data = $('.skipids');
+		if(data.length > 0) {
+	      var color = $(data[data.length -1]);
+		  setParam(path, 'colorids', color.attr('data-colorids'));
+		}
+		return url[0] + '?' + path.join('&') + '&part=t&media=html';
+	}
+
+
+
+	function page() {
+		return (1 + next / pages.max);
+	}
+
+
+
+	function loadCompleted(nextDiv) {
+		var nextButton = $('#nextPageButton' + nr);
+		nextButton.html('' + nextButton.attr('data-text'));
+		if (callback) {
+			callback();
+		}
+		var m = next + pages.max;
+		var more = $('#nextPage' + nr + m);
+		nextButton.show();
+		var addAll = $('.addallwrap');
+		addAll.hide();
+		$('#searchTextLegend').hide();
+		if(more.length != 1) {
+    	   addAll.show();
+		   nextButton.hide();
+		}
+		if ((next + pages.max) >= pages.total) {
+		  nextButton.fadeOut();
+     	  addAll.show();
+		}
+		adjustHeaderPadder();
+		if (!loadOK) {
+			return;
+		}
+		$('#pageLinkId' + nr + page()).addClass('cur');
+		$('#pagesResultText' + nr).html('Resultaten ' + Math.max(1, pages.start) + ' - ' + Math.min(pages.total, next + (pages.max - 1)) + ' van  ' + pages.total);
+		loading = false;
+	}
+
+
+
+	function loadNext() {
+		var nextDiv = $('#nextPage' + nr + next);
+		if (nextDiv.length != 1) {
+			return;
+		}
+		if (loadOK) {
+			$('#nextPageButton' + nr).html('<img src="/static/9.71.1_1341/loading.svg" alt="Loading..." width="16" height="16"> Pagina laden ' + page());
+		}
+		$('.userObjectsOnly').hide();
+		var url = nextUrl();
+		if(url=='x') {
+		  return;
+		}
+		nextDiv.load(url, function(response, status, xhr) {
+			if (xhr.status == 200) {
+				loadOK = true;
+		        $('#colorExplanationList').append(nextDiv.find('.colorInnerWrapper'));
+			} else {
+				loadOK = false;
+				$("#errorPage" + nr).html("Unable to load page: " + page() + " (Error code:" + xhr.status + ")").fadeIn();
+			}
+			var used = [];
+			$('#objectsearchresult .searchObject').each(function(index, g) {
+			    var object = $(g);
+			    var id = object.attr('data-id');
+			    if(isEmpty(id)) {
+			       return;
+			    }
+			    if(jQuery.inArray(id, used) !== -1) {
+			       object.addClass('hidden');
+			       return;
+			    } 
+    			used.push(id);
+     		});
+			loadCompleted(nextDiv);
+		}).fadeIn("", function() {
+		});
+	}
+
+
+	function check(e) {
+	    stop(e);
+		if (loading) {
+			return;
+		}
+		if ((next + pages.max) < pages.total) {
+			loading = true;
+			next += pages.max;
+			loadNext();
+		}
+	}
+   
+   return check;
+}
+var postInits = [];
+var select2Locale = 'nl';
+
+function initFooter() {
+objectSearcherFF = 'osFF/nl_utwente/web13_12,345';
+
+initSwitcher({locale: 'nl_AW', showWeek: true, firstDay: 1, dateFormat: 'mm-dd-yy'});
+if(typeof initPersonsSendMail === "function") { initPersonsSendMail(); }
+timers.push('Footer ' + ((new Date()).getTime() - beforeload) + 'ms');
+postInits.push(function() {
+    initEditField();
+});
+
+setTimeout(function() { for (var i = 0; i < postInits.length; i++) { postInits[i](); } }, 200);
+}
+
+function makeDoubleDelegate(first, second) {
+    return function() {
+        if (first) {
+            first();
+        }
+        if (second) {
+            second();
+        }
+    }
+}
+
+window.onload = makeDoubleDelegate(window.onload, function() { loadScript('/static/9.71.1_1341/min.js', initFooter); loadScript('/static/9.71.1_1341/javascript/authorize.js', function() {}); } );
+timers.push('PageEnd ' + ((new Date()).getTime() - beforeload) + 'ms');
+</script>
+<br><br><br>
+</body>
+</html>
+  

@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="application-name" content="TimeEdit"/> 
+<meta name="msapplication-TileColor" content="#00824c"/> 
+<meta name="msapplication-TileImage" content="/static/9.71.1_1341/iepinned.png"/>
+<link rel="icon" type="image/png" href="/static/9.71.1_1341/iepinned.png"/>
+<meta name="theme-color" content="#00824c"/>  <meta name = "viewport" content = "initial-scale = 1.0">
+  <title>University of Twente </title>
+  <!-- 9.71.1 Date: 20261006 1341 Build: 8.69.1-584-ga49a5982. APIMethods: edabc73. API: 85c5a71. -->
+  <style type="text/css">
+@font-face {
+  font-family: 'MontserratBold';
+  src: url('/static/9.71.1_1341/fonts/SourceSans3-SemiBold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('/static/9.71.1_1341/fonts/SourceSans3-Regular.ttf') format('truetype');
+}
+
+  body {
+    background: #FFF;
+    margin: 0;
+    color: #0F1818;
+    font-family: Lato,arial,Helvetica,Verdana,sans-serif;
+    font-size: 16px;
+  }
+
+  .op, .items, input[type=button], input[type=submit], select, a, button {
+    font-family: 'MontserratBold', sans-serif;
+  }
+  
+input[type=button], input[type=submit], select, button {
+  border-radius: 4px;
+  background-color: #f5f5f5;
+  background: linear-gradient(to bottom, #ffffff, #e6e6e6);
+  border: 1px solid #AAA;
+  border-bottom-color: #555;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.75);
+  letter-spacing: 0;
+   padding: 2px 8px;
+   cursor: pointer;
+   height: 2em;
+}
+
+input[type=button]:hover, input[type=submit]:hover, button:hover {
+  background: linear-gradient(to bottom, #f3f3f3, #e6e6e6);
+  text-shadow: none;
+}
+
+input[type=button]:active, input[type=submit]:active, button:active {
+  outline: 0;
+  background: #f5f5f5;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+  
+  h3, .customer {
+    color: #0E5C67;
+  }
+  
+  .customer {
+    margin: 1em;
+    text-align: center;
+    font-size: 30px;
+    font-family: 'MontserratBold', sans-serif;
+  }
+  
+  .globelinked {
+    display: block;
+    font-size: 16px;
+    font-weight: normal;
+  }
+
+  .globecustom {
+	margin: auto;
+    max-height: 110px;
+    max-width: 350px;
+    margin-top: 1em;
+    display: block;
+  }
+  
+  .globewrap {
+    height: 110px;
+  }
+  
+  .globe {
+    background-image: url("/static/9.71.1_1341/tesolid.svg");
+    width: 110px;
+    background-size: 100%;
+    background-repeat: no-repeat;
+	margin: auto;
+    height: 110px;
+    margin-top: 1em;
+  }
+  
+  .startTable {
+	margin: 0 auto;
+	text-align: left;
+	min-width: 150px;
+  }
+  
+  .startTable td {
+	vertical-align: top;
+  }
+
+  .startMainContent {
+	padding: 20px;
+  }
+  
+  .items {
+    display: block;
+    padding: 0.3em;
+    font-size: 20px;
+    max-width: 30em;
+  }
+  
+  .items:hover {
+    color: #074752 !important;
+  }
+  
+  .items .lock {
+    margin-right: 5px;
+    height: 16px;
+    width: 16px;
+    display: inline-block;
+  }
+  
+  .text, p {
+    font-size: 16px;
+    font-weight: normal;
+    color: #303030;
+    letter-spacing: 0;
+  }
+  
+  .text {
+      font-family: Lato,arial,Helvetica,Verdana,sans-serif;
+      text-transform: none;
+  }
+  
+  p {
+    margin-top: 0px;
+  }
+
+  .loginText, a {
+    font-size: 1.17em;
+    font-weight: bold;
+  }
+  
+  .header {
+     padding: 7px 13px;
+     padding-bottom: 0;
+     font-size: 16px;
+     float: right;
+  }
+  
+  .header a {
+    font-size: 13px;
+    font-weight: normal;
+    color: #717676; 
+  }
+  
+  .loginText {
+    font-size: 16px;
+    font-weight: normal;
+    color: #717676;
+  }
+
+  a {
+    color: #00596F;
+	text-decoration: none;
+  }
+  a .text {
+    color: #717676;
+	text-decoration: none;
+  }
+  
+  a:hover {
+	text-decoration: underline;
+  }
+
+  input, select, textarea, button {
+    font-size: 16px;
+    margin: 0;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+  }
+  
+  img {
+     border-width: 0px;
+  }
+  
+  .clear {
+   clear: both;
+   padding-top: 5px;
+  }
+
+  .hidden {
+    display: none;
+  }
+  
+  .hidelogin {
+    visibility: hidden;
+  }
+  
+  .error {
+    color: #8B0008;
+    font-size: 20px; 
+  }
+  
+  #loginmessage {
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    padding: 0.3em;
+  }
+
+  #loginmessage {
+    color: #0F1818; 
+    background: #E7F1F1; 
+  }
+  
+  .cookiewarning {
+     font-size: 13px;
+     color: #717676;
+     text-align: center;
+  }
+  
+  #message {
+    max-width: 40em;
+  }
+   
+  .message {
+    color: red;
+    margin: 0;
+    margin-top: 3px;
+    margin-bottom: 10px;
+  }
+
+  #languageDropdown {
+    font-size: 13px;
+  }
+  
+  </style>
+  <script type="text/javascript">   
+    function emptyValue(value) {
+        return value === undefined || value === null || value === '';
+    }
+       
+	function language(name) {
+		if(emptyValue(name)) {
+			return;
+		}
+	  document.cookie='TimeEditLanguage=' + name + ';path=/';
+	  window.location.reload(); 
+	}
+
+	function languageDropdown() {
+		language(document.getElementById('languageDropdown').value);
+	}
+	
+  </script>
+</head>
+<body>
+<script type="text/javascript">
+  /*
+  Constants which need to be 'hardcoded' for each project
+*/
+var AUTH_TOKEN_NAME = AUTH_TOKEN_NAME || 'te_auth_token';
+var AUTH_MESSAGE_NAME = AUTH_MESSAGE_NAME ||'te_auth_request'
+var AUTH_LOGUOUT_MESSAGE = AUTH_LOGUOUT_MESSAGE ||'te_auth_logout_request';
+
+var logger = (debug, ...args) => {
+  if (debug) {
+    args.map(arg => console.log(arg));
+  }
+}
+
+/*
+  'Manually' decode token, since I dont 
+  want to include external dependencies here
+*/
+var parseJwt = (token) => {
+  var base64Url = token.split('.')[1];
+  var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  var jsonPayload = decodeURIComponent(atob(base64).split('').map((c) => {
+    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+  }).join(''));
+
+  return JSON.parse(jsonPayload);
+};
+
+/*
+  Authorization, should contain more checks in the future(?)
+*/
+var tokenPassesAuthorization = (accessToken, appId) => {
+  if (accessToken.scopes.includes('TE_ROOT_USER')) return true;
+  return accessToken.scopes.some((scope) => scope.includes(appId));
+};
+
+/*
+  Validation, basic checks of data in the decoded token
+*/
+var tokenPassesValidation = (decodedToken, appId) => {
+  if (
+    decodedToken?.exp <= Date.now() / 1000 ||
+    decodedToken?.type !== 'USER' ||
+    !decodedToken?.id ||
+    !decodedToken?.organizationId
+  ) return false;
+  return tokenPassesAuthorization(decodedToken, appId);
+};
+
+var runIframe = async (authUrl, message, debug = false) => (
+  new Promise((resolve, reject) => {
+    // Create Iframe
+    logger(debug, 'Creating iframe...', 'Message type:', message);
+    let iframe;
+    try {
+      iframe = window.document.createElement('iframe');
+      iframe.setAttribute('width', '0');
+      iframe.setAttribute('height', '0');
+      iframe.style.display = 'none';
+      logger(debug, 'Done creating iframe...');
+    } catch (e) {
+      logger(debug, 'Failed creating iframe', e);
+      reject('Failed creating iframe');
+    }
+
+    // If no response within 5 sec, kill iframe and throw error
+    var cleanupTimeout = setTimeout(() => {
+      logger(debug, 'Rejecting due to no relevant response within 5 sec...');
+      window.removeEventListener('message', iframeEventHandler, false);
+      window.document.body.removeChild(iframe);
+      reject('TIMEOUT');
+    }, 5000);
+  
+    var iframeEventHandler = (e) => {
+      // Is the response received from our auth site and the right type?
+      logger(debug, 'Message occurred in frame');
+
+      if (!ensureValidHostname(e.origin)) {
+        logger(debug, "Invalid hostname, ignoring...", e);
+        return;
+      }
+
+      if (e.data.type !== message) return;
+      logger(debug, 'Message is from correct origin and of correct type');
+  
+      // Remove timeout timer, kill iframe since it has served its purpose
+      clearTimeout(cleanupTimeout);
+      window.removeEventListener('message', iframeEventHandler, false);
+      window.document.body.removeChild(iframe);
+  
+      // Does the response contain expected data?
+      var validData = (e && e.data && e.data.response && !e.data.response.error);
+      if (validData) {
+        logger(debug, 'Response is valid - resolving');
+        resolve(e.data.response);
+      } else {
+        logger(debug, 'Response is not valid - rejecting...', e);
+        reject('Response is not valid - rejecting...', e);
+      }
+  
+    }
+
+    var onLoadFn = () => {
+      logger(debug, 'iFrame onLoad running...')
+      if (!iframe.contentWindow) {
+        logger(debug, 'iFrame error - no content window')
+        // Cleanup
+        clearTimeout(cleanupTimeout);
+        window.removeEventListener('message', iframeEventHandler, false);
+        window.document.body.removeChild(iframe);
+
+        reject('NO_CONTENT_WINDOW');
+      } else {
+        // Send message
+        logger(debug, `Posting message: ${{ type: message }}`);
+        iframe.contentWindow.postMessage({ type: message }, '*');
+      }
+    };
+
+    var dt = new Date(); // Epoch time used for cache-busting
+    iframe.onload = onLoadFn;
+    window.addEventListener('message', iframeEventHandler, false);
+    iframe.setAttribute('src', `${authUrl}/authorization.html?dt=${dt.getTime()}`);
+    window.document.body.append(iframe)
+  })
+)
+
+var getRemoteAuthTokenSilently = async (authUrl, redirectEnabled, debug = false) => {
+  try {
+    logger(debug, 'Attempting to create iframe and fetching token...');
+
+    var value = await runIframe(authUrl, AUTH_MESSAGE_NAME, debug);
+    if (!value) {
+      logger(debug, 'No value attained while getting remote token')
+      return null;
+    }
+    logger(debug, 'Found token remotely...')
+    return value;
+  } catch (e) {
+    logger(debug, 'Error in getRemoteTokenSilently:', e);
+    return null;
+  }
+}
+
+function ensureValidHostname(origin) {
+  const { hostname } = window.location;
+  const timeEditDomain = hostname.substring(hostname.indexOf("timeedit"));
+  const allowedDomains = ["localhost", timeEditDomain, "timeedit.net"];
+  const eventHostname = new URL(origin).hostname;
+
+  return allowedDomains.some((d) => eventHostname.endsWith(d));
+}
+
+var getAuthURL = (environment) => {
+  let authUrl;
+  switch (environment) {
+    case 'development':
+      authUrl = 'http://localhost:3000'
+      break;
+    case 'beta':
+      authUrl = 'https://www.timeedit.dev'
+      break;
+    case 'staging':
+      authUrl = 'https://www.timeedit.io'
+      break;
+    case 'test':
+      authUrl = 'https://www.test.timeedit.net'
+      break;
+    case 'production':
+      authUrl = 'https://www.timeedit.net'
+      break;
+    default:
+      authUrl = 'https://www.timeedit.net'
+      break;
+  }
+  return authUrl;
+}
+
+function isEmptyString(str) {
+    return (!str || str.length === 0 );
+}
+
+var retrieveToken = async (returnUri, appId, environment, customerSignature, language, authConfigId, redirectEnabled = false, debug = false) => {
+  var authUrl = getAuthURL(environment);
+  var params = new URLSearchParams({ customerSignature, appId, authConfigId: authConfigId, context: returnUri });
+  if(!isEmptyString(authConfigId)) {
+	params.set('autoSubmitLogin', true);
+  }
+  var deepURL = `${authUrl}/deep-link?${params.toString()}`;
+
+  logger(debug, 'Running in debug mode...');
+  // Workflow
+  // See if a local token exists in localstorage
+  // No local token, fetch remote token using iframe
+  logger(debug, 'Attempting to fetch token silently...');
+  var token = await getRemoteAuthTokenSilently(authUrl, redirectEnabled, debug);
+  if (token) {
+    logger(debug, 'Found token remotely, validating...')
+    // Remote token found
+    try {
+      // Validate that it appears to be a TimeEdit token
+      var accessToken = token.accessToken;
+      logger(debug, 'Attempting to decode token...');
+      var decodedToken = parseJwt(accessToken);
+      logger(debug, 'Token decoded...');
+      var tokenIsValid = tokenPassesValidation(decodedToken, appId);
+      logger(debug, tokenIsValid ? 'Token valid' : 'Token invalid');
+      if (tokenIsValid) {
+        logger(debug, accessToken);
+        return accessToken;
+      } else {
+        await logoutNoRedirect(environment);
+        if (redirectEnabled) {
+          window.location.href = deepURL;
+        }
+      }
+    } catch (error) {
+      logger(debug, 'Error in retrieveToken', error)
+      if (redirectEnabled) {
+        window.location.href = deepURL;
+      }
+    }
+  } else {
+    logger(debug, 'No token could be retrieved silently', 'Returning...')
+    if (redirectEnabled) {
+      window.location.href = deepURL;
+    }
+  }
+}
+
+var logout = async (environment) => {
+  var authUrl = getAuthURL(environment);
+  try {
+    await runIframe(authUrl, AUTH_LOGUOUT_MESSAGE);
+    window.location.href = authUrl;
+    logger(true, 'Logout complete!');
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+var logoutNoRedirect = async (environment) => {
+  var authUrl = getAuthURL(environment);
+  try {
+    await runIframe(authUrl, AUTH_LOGUOUT_MESSAGE);
+    logger(true, 'Logout no redirect complete!');
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+var logoutViewer = async (logoutURL) => {
+  try {
+    await fetch(logoutURL);
+    logger(true, 'LogoutViewer complete!');
+  } catch (error) {
+    console.log(error);
+  }
+}
+  function isEmpty(str) {
+	return (!str || 0 === str.length);
+  }
+  
+  function print(text) {
+     var box = document.getElementById("useAuthResult");
+     if (window.console) {
+        console.log("TEV: " + text);
+     }
+     if(!box) {
+        return;
+     }
+     box.textContent = "" + text;
+  }
+  
+  function loginWithTEAuth(redirectEnabled, path) {
+      var url = window.location.href;
+      if(path) {
+         url = window.location.protocol + "//" + window.location.host + path;
+      }
+	  try {
+         retrieveToken(url, "TE_VIEWER", "production", "cloud_nl_utwente", "nl", "", redirectEnabled)
+         .then(function(token) { 
+           postTEAuth(token, url, redirectEnabled); 
+         });
+	  } catch (error) {
+	     showLoginButton();
+	     print("TEAuth error #4");
+	     console.log("Error in TEAuth plugin");
+	     console.log(error);
+	  }
+	  return false;
+   }
+   
+  function showLoginButton() {
+	 var button = document.getElementById("loginAuth");
+	 if(button) {
+	    button.classList.remove("hidelogin");
+     }
+	 var wrap = document.getElementById("loginAuthWrap");
+	 if(wrap) {
+	    wrap.classList.remove("loading");
+     }
+	 document.body.style.visibility = "visible";
+  }
+
+  function postTEAuth(token, url, redirectEnabled) {	 
+	if(isEmpty(token)) {
+    	 if(redirectEnabled) {
+	       print("TE Auth redirecting... " + url);
+	       return;
+    	 }
+	     showLoginButton();
+	     print("TE Auth no token.");
+	     return;
+	}
+	var xhr = new XMLHttpRequest();
+	xhr.open("POST", url, true);
+	xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+	xhr.send("teauthtoken=" + token);
+	xhr.onreadystatechange = function () {
+       if (xhr.readyState != 4) { return; }
+       if (xhr.status == 200) {
+          window.location.href = url;
+          return;
+       }
+       logoutNoRedirect("production");
+       if(redirectEnabled) {
+	      print("TE Auth logout then redirecting... " + url);
+          retrieveToken(url, "TE_VIEWER", "production", "cloud_nl_utwente", "nl", "", redirectEnabled);
+       }
+       showLoginButton();
+       print("TE Auth login: URL: " + url + " Status: " + xhr.status);
+       if (xhr.status >= 500) {
+          print("TE Auth login error: URL: " + url + " Status: " + xhr.status + " " + xhr.responseText);
+       }
+       if (window.console) {
+        console.log("TEV postTEAuth!");
+        console.log(url);
+        console.log(xhr.responseText);
+        console.log(xhr);
+       }
+    };
+    var wrap = document.getElementById("loginAuthWrap");
+	if(wrap) {
+	   wrap.classList.add("loading");
+	   setTimeout(function(){ window.location.reload(); }, 5000);
+	   print("TE Auth posted");
+    }
+  }
+  
+  
+  loginWithTEAuth(false);
+  
+</script>  <div class="header">
+	<select id="languageDropdown" onchange="languageDropdown()" class="leftPadded">
+  	  <option value="">Taal: Automatisch</option>
+	    <option value="en">English</option>
+	    <option value="nl">Nederlands</option>
+  	  <option value="*">Automatisch</option>
+	</select>
+  	<a href="/nl_utwente/web/" class="toplink">Naar de startpagina</a> 
+  </div>
+
+  <div class="startMainContent">
+        <div class="startInnerMainContent">
+        <a href="/nl_utwente/web/" class="globelinked"> 
+            <div class="globe"></div>
+        <div class="customer">University of Twente</div>
+        </a> 
+        <table class="startTable">
+                       <tr>
+                <td>                
+  <div class="loginbox" id="loginwrap">
+  	<div class="loginText">Student</div>
+      <form method="post" action="" id="loginForm">
+		     <div id="loginAuthWrap">
+		     <input id="loginAuth" class="hidelogin" style="margin:1em 0;padding: 2px 30px;" type="button" onclick="loginWithTEAuth(true)" value="Login">
+		     </div>
+	  <p class="hidden"><input type="hidden" id="fragment" name="fragment" value=""></p>
+      </form>
+      <noscript>
+	  	<p class="message leftPadded error">Om deze pagina goed te laten werken moet uw browswer JavaScript ondersteunen.</p>
+      </noscript>
+  
+
+<div id="entrylist">
+</div>	 
+</div>
+                </td>
+            </tr>
+        </table>
+        </div>
+    </div>
+  <div class="cookiewarning">Deze site gebruikt cookies om inloggen af te handelen </div>
+
+<div class="cookiewarning" style="margin: 1em" id="useAuthResult">TE Auth on</div>
+
+<noscript><style>body { visibility: visible; }</style></noscript>
+</body>
+</html>

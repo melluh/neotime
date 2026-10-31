@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.Neotime" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
