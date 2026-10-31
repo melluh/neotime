@@ -3,14 +3,21 @@ package com.melluh.neotime
 import android.app.Application
 import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.melluh.neotime.auth.SessionManager
 import com.melluh.neotime.auth.SessionStore
 import com.melluh.neotime.auth.WebViewCookieJar
+import com.melluh.neotime.data.LecturerRepository
 import com.melluh.neotime.data.ScheduleRepository
+import com.melluh.neotime.timeedit.PeopleDirectory
 import com.melluh.neotime.timeedit.TimeEditClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import okhttp3.CookieJar
 import okhttp3.OkHttpClient
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -28,12 +35,16 @@ class AppContainer(app: Application) {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
+    /** The people pages and their image CDN are public; login cookies must not reach them. */
+    val anonymousHttp = http.newBuilder().cookieJar(CookieJar.NO_COOKIES).build()
+
     val client = TimeEditClient(http)
     val session = SessionManager(app, client, SessionStore(app.session))
     val schedule = ScheduleRepository(client, session, app.settings, File(app.filesDir, "schedule.json"))
+    val lecturers = LecturerRepository(PeopleDirectory(anonymousHttp), File(app.filesDir, "lecturers.json"))
 }
 
-class NeotimeApp : Application() {
+class NeotimeApp : Application(), SingletonImageLoader.Factory {
     lateinit var container: AppContainer
         private set
 
@@ -42,4 +53,8 @@ class NeotimeApp : Application() {
         container = AppContainer(this)
         container.scope.launch { container.session.restore() }
     }
+
+    override fun newImageLoader(context: PlatformContext): ImageLoader = ImageLoader.Builder(context)
+        .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.anonymousHttp })) }
+        .build()
 }

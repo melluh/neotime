@@ -66,7 +66,8 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onLogin: () -> U
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
-                        "The app only connects directly to TimeEdit and UT's sign-in to load your schedule and book rooms.",
+                        "The app only connects directly to TimeEdit and UT's sign-in to load your schedule and book rooms, " +
+                            "and to UT's people pages and their image host (utwente.becdn.net) to find lecturers and their photos.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

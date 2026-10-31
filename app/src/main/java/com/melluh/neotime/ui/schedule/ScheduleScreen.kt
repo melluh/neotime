@@ -1,7 +1,10 @@
 package com.melluh.neotime.ui.schedule
 
 import android.content.Intent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,8 +12,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
@@ -40,6 +45,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,13 +55,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImage
 import com.melluh.neotime.AppContainer
+import com.melluh.neotime.data.LecturerEntry
 import com.melluh.neotime.data.RefreshResult
 import com.melluh.neotime.data.ScheduleSnapshot
 import com.melluh.neotime.timeedit.DataSource
 import com.melluh.neotime.timeedit.Event
 import com.melluh.neotime.timeedit.ObjectRef
+import com.melluh.neotime.timeedit.PersonMatch
 import com.melluh.neotime.timeedit.TIMEEDIT_ZONE
+import com.melluh.neotime.timeedit.isPlaceholderLecturer
 import com.melluh.neotime.ui.AccountChip
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -76,6 +87,8 @@ class ScheduleViewModel(private val container: AppContainer) : ViewModel() {
     val snapshot: StateFlow<ScheduleSnapshot> = container.schedule.snapshot
     val selection: StateFlow<List<ObjectRef>?> = container.schedule.selection
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    val lecturers: StateFlow<Map<String, LecturerEntry>> = container.lecturers.entries
 
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing
@@ -104,6 +117,12 @@ class ScheduleViewModel(private val container: AppContainer) : ViewModel() {
             if (result is RefreshResult.Failed) _messages.value = result.message
         }
     }
+
+    fun loadLecturers(names: List<String>) {
+        viewModelScope.launch { container.lecturers.load(names) }
+    }
+
+    fun lecturerSearchUrl(name: String): String = container.lecturers.searchUrl(name)
 
     fun messageShown() {
         _messages.value = null
@@ -190,7 +209,7 @@ fun ScheduleScreen(container: AppContainer, onOpenPicker: () -> Unit, onOpenSett
         }
     }
 
-    selected?.let { event -> EventSheet(event, showLecturerHint = snapshot.source == DataSource.PUBLIC) { selected = null } }
+    selected?.let { event -> EventSheet(event, vm, showLecturerHint = snapshot.source == DataSource.PUBLIC) { selected = null } }
 }
 
 @Composable
@@ -232,8 +251,10 @@ private fun EmptyState(onOpenPicker: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EventSheet(event: Event, showLecturerHint: Boolean, onDismiss: () -> Unit) {
+private fun EventSheet(event: Event, vm: ScheduleViewModel, showLecturerHint: Boolean, onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val lecturers by vm.lecturers.collectAsStateWithLifecycle()
+    LaunchedEffect(event) { vm.loadLecturers(event.lecturers) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(event.courseName, style = MaterialTheme.typography.titleLarge)
@@ -247,14 +268,20 @@ private fun EventSheet(event: Event, showLecturerHint: Boolean, onDismiss: () ->
                 "Where",
                 if (event.rooms.isEmpty()) "Not published yet" else event.rooms.joinToString(", ") + (event.building?.let { " · $it" } ?: ""),
             )
-            Detail(
-                "Lecturers",
-                when {
-                    event.lecturers.isNotEmpty() -> event.lecturers.joinToString("\n")
-                    showLecturerHint -> "Log in to see lecturers"
-                    else -> "None listed"
-                },
-            )
+            if (event.lecturers.isEmpty()) {
+                Detail("Lecturers", if (showLecturerHint) "Log in to see lecturers" else "None listed")
+            } else {
+                Column {
+                    DetailLabel("Lecturers")
+                    event.lecturers.forEach { name ->
+                        val match = lecturers[name]?.match
+                        LecturerRow(name, match) {
+                            val url = match?.profileUrl ?: vm.lecturerSearchUrl(name)
+                            context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+                        }
+                    }
+                }
+            }
             event.coursePart?.let { Detail("Part", it) }
             event.extraInfo?.let { Detail("Info", it) }
             event.locationUrl?.let { url ->
@@ -267,11 +294,59 @@ private fun EventSheet(event: Event, showLecturerHint: Boolean, onDismiss: () ->
 }
 
 @Composable
+private fun LecturerRow(name: String, match: PersonMatch?, onClick: () -> Unit) {
+    if (isPlaceholderLecturer(name)) {
+        Text(name, style = MaterialTheme.typography.bodyLarge)
+        return
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClickLabel = "Open profile of $name", onClick = onClick)
+            .padding(vertical = 6.dp),
+    ) {
+        // The photo draws over the initials, which stay visible while loading or if it can't be decoded
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
+        ) {
+            Text(
+                initials(name),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            match?.photoUrl?.let { url ->
+                AsyncImage(
+                    model = url,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        Text(name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+private fun initials(name: String): String {
+    val words = name.split(' ').filter { it.isNotEmpty() }
+    return listOfNotNull(words.firstOrNull(), words.lastOrNull().takeIf { words.size > 1 })
+        .joinToString("") { it.take(1).uppercase() }
+}
+
+@Composable
 private fun Detail(label: String, value: String) {
     Column {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+        DetailLabel(label)
         Text(value, style = MaterialTheme.typography.bodyLarge)
     }
+}
+
+@Composable
+private fun DetailLabel(label: String) {
+    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
 }
 
 private val DAY_FORMAT = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault())
