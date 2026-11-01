@@ -60,6 +60,7 @@ import com.melluh.neotime.timeedit.PersonMatch
 import com.melluh.neotime.timeedit.RoomNames
 import com.melluh.neotime.timeedit.RoomPlace
 import com.melluh.neotime.timeedit.TIMEEDIT_ZONE
+import com.melluh.neotime.timeedit.TimeEditException
 import com.melluh.neotime.timeedit.isPlaceholderLecturer
 import com.melluh.neotime.ui.AccountChip
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -92,6 +93,16 @@ class ScheduleViewModel(private val container: AppContainer) : ViewModel() {
     val messages: StateFlow<String?> = _messages
 
     init {
+        // A fresh cache skips the refresh below, so check the restored login here: an expired one
+        // has to show up at launch, and a public cache shouldn't outlive a session that still works
+        viewModelScope.launch {
+            val active = try {
+                container.session.ensureSession()
+            } catch (e: TimeEditException) {
+                false
+            }
+            if (active && snapshot.value.source == DataSource.PUBLIC) refresh()
+        }
         // Refresh when the selection no longer matches the cache, or the cache is old
         viewModelScope.launch {
             combine(container.schedule.selection, snapshot) { sel, snap -> sel.map { it.id }.sorted() to snap }

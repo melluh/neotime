@@ -112,14 +112,22 @@ class SessionManager(
 
     private val mutex = Mutex()
 
+    /** Completes once [restore] has run, so a launch-time refresh can't mistake a saved login for none. */
+    private val restored = CompletableDeferred<Unit>()
+
     suspend fun restore() {
-        val account = store.account() ?: return
-        val expiry = store.token()?.let { runCatching { Jwt.claims(it).expiresAt }.getOrNull() }
-        _state.value = SessionState.LoggedIn(account, expiry)
+        try {
+            val account = store.account() ?: return
+            val expiry = store.token()?.let { runCatching { Jwt.claims(it).expiresAt }.getOrNull() }
+            _state.value = SessionState.LoggedIn(account, expiry)
+        } finally {
+            restored.complete(Unit)
+        }
     }
 
     /** True when STUDENT requests will work. Never prompts; sets [SessionState.NeedsInteractiveLogin] instead. */
     suspend fun ensureSession(): Boolean = mutex.withLock {
+        restored.await()
         val before = _state.value
         val account = before.account() ?: return false // never logged in: don't touch the IdP
         try {
