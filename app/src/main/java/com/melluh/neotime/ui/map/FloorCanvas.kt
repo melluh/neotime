@@ -210,7 +210,7 @@ fun FloorCanvas(
         mapOf(
             Layer.AREA to colors.surfaceContainer,
             Layer.HALLWAY to colors.surfaceContainerHighest,
-            Layer.ROOM to colors.surface,
+            Layer.ROOM to colors.surfaceContainerHighest,
             Layer.LECTURE_HALL to colors.primaryContainer,
             Layer.TOILET to colors.tertiaryContainer,
             Layer.STAIRS_AND_LIFTS to colors.secondaryContainer,
