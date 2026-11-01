@@ -20,7 +20,7 @@ import androidx.navigationevent.NavigationEvent
 import kotlin.math.sign
 
 /*
- * The transition between the app and its settings pages, and between the settings pages.
+ * The transition between the app and its settings and course pages, and between those pages.
  *
  * Tapped navigation uses the values of the platform's own activity transition
  * (`res/anim/activity_{open,close}_{enter,exit}.xml`), so these pages move like a separate
@@ -28,7 +28,7 @@ import kotlin.math.sign
  * one on top fades, over a few frames, and the one below stays opaque the whole time.
  */
 
-private val SETTINGS_ROUTES = setOf("settings", "privacy", "about")
+private val SETTINGS_ROUTES = setOf("settings", "privacy", "about", "picker", "picker/add", "picker/course/{id}")
 
 private const val DURATION_MS = 450
 private const val ENTER_FADE_DELAY_MS = 50
