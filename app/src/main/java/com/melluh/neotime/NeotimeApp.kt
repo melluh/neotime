@@ -11,8 +11,10 @@ import com.melluh.neotime.auth.SessionManager
 import com.melluh.neotime.auth.SessionStore
 import com.melluh.neotime.auth.WebViewCookieJar
 import com.melluh.neotime.data.LecturerRepository
+import com.melluh.neotime.data.MapRepository
 import com.melluh.neotime.data.RoomRepository
 import com.melluh.neotime.data.ScheduleRepository
+import com.melluh.neotime.timeedit.MazeMapClient
 import com.melluh.neotime.timeedit.PeopleDirectory
 import com.melluh.neotime.timeedit.TimeEditClient
 import java.io.File
@@ -44,6 +46,7 @@ class AppContainer(app: Application) {
     val schedule = ScheduleRepository(client, session, app.settings, File(app.filesDir, "schedule.json"))
     val lecturers = LecturerRepository(PeopleDirectory(anonymousHttp), File(app.filesDir, "lecturers.json"))
     val rooms = RoomRepository(client, session, schedule, app.settings)
+    val maps = MapRepository(MazeMapClient(anonymousHttp), app.settings, File(app.cacheDir, "mazemap"))
 }
 
 class NeotimeApp : Application(), SingletonImageLoader.Factory {
