@@ -67,7 +67,10 @@ class ScheduleRepository(
             .orEmpty()
     }
 
-    suspend fun add(ref: ObjectRef) = editSelection { (it + ref).distinctBy { r -> r.id } }
+    suspend fun add(ref: ObjectRef) = addAll(listOf(ref))
+
+    /** One write, so the schedule refreshes once rather than per item. */
+    suspend fun addAll(refs: List<ObjectRef>) = editSelection { (it + refs).distinctBy { r -> r.id } }
 
     suspend fun remove(ref: ObjectRef) = editSelection { it.filterNot { r -> r.id == ref.id } }
 

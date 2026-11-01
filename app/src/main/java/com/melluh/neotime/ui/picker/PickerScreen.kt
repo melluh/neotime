@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -40,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -110,6 +112,10 @@ class PickerViewModel(private val container: AppContainer) : ViewModel() {
     fun toggle(ref: ObjectRef) = viewModelScope.launch {
         if (selection.value.any { it.id == ref.id }) container.schedule.remove(ref) else container.schedule.add(ref)
     }
+
+    fun addAll(refs: List<ObjectRef>) {
+        viewModelScope.launch { container.schedule.addAll(refs) }
+    }
 }
 
 private val PICKABLE = listOf(ObjectType.STUDENT_SET, ObjectType.COURSE, ObjectType.STUDY_PROGRAMME)
@@ -166,6 +172,13 @@ fun PickerScreen(container: AppContainer, onBack: () -> Unit) {
                 value = query,
                 onValueChange = { vm.query.value = it },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                trailingIcon = query.takeIf { it.isNotEmpty() }?.let {
+                    {
+                        IconButton(onClick = { vm.query.value = "" }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                        }
+                    }
+                },
                 placeholder = { Text("Search, e.g. \"TCS MOD02\" or \"Calculus\"") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -193,7 +206,12 @@ fun PickerScreen(container: AppContainer, onBack: () -> Unit) {
                 }
                 if (showRegistrations && osirisAllowed == true) {
                     item(key = "registrations-header") {
-                        RegistrationsHeader(registrations, onRetry = { vm.refreshRegistrations(force = true) })
+                        val addable = registrations.items.mapNotNull { it.ref }.filter { ref -> selection.none { it.id == ref.id } }
+                        RegistrationsHeader(
+                            state = registrations,
+                            onRetry = { vm.refreshRegistrations(force = true) },
+                            onAddAll = { vm.addAll(addable) }.takeIf { addable.isNotEmpty() && !registrations.loading },
+                        )
                     }
                     items(registrations.items, key = { "registration-${it.code}-${it.block}" }) { registration ->
                         val ref = registration.ref
@@ -264,9 +282,20 @@ private fun RegistrationsConsent(onAllow: () -> Unit, onDecline: () -> Unit) {
 }
 
 @Composable
-private fun RegistrationsHeader(state: RegistrationsState, onRetry: () -> Unit) {
+private fun RegistrationsHeader(state: RegistrationsState, onRetry: () -> Unit, onAddAll: (() -> Unit)?) {
     Column(Modifier.fillMaxWidth().padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp)) {
-        Text("Your current registrations", style = MaterialTheme.typography.titleSmall)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Your current registrations", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            if (onAddAll != null) {
+                TextButton(
+                    onClick = onAddAll,
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    modifier = Modifier.height(32.dp),
+                ) {
+                    Text("Add all", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
         when {
             state.loading -> LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp))
             state.error != null -> {

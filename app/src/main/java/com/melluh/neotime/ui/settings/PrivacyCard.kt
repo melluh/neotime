@@ -88,7 +88,7 @@ fun PrivacyCard(modifier: Modifier = Modifier) {
 private fun ContactedDomainsDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Domains contacted") },
+        title = { Text("Privacy & security") },
         text = {
             Column(
                 Modifier.verticalScroll(rememberScrollState()),

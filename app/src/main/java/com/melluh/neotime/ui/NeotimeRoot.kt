@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,6 +52,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.melluh.neotime.AppContainer
+import com.melluh.neotime.R
 import com.melluh.neotime.auth.SessionState
 import com.melluh.neotime.timeedit.Account
 import com.melluh.neotime.ui.login.LoginScreen
@@ -103,7 +104,7 @@ fun NeotimeRoot(container: AppContainer) {
                     NavigationBarItem(
                         selected = route == "rooms",
                         onClick = { openTab("rooms") },
-                        icon = { Icon(Icons.Filled.Place, contentDescription = null) },
+                        icon = { Icon(painterResource(R.drawable.ic_meeting_room), contentDescription = null) },
                         label = { Text("Rooms") },
                     )
                     NavigationBarItem(
