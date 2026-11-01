@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
@@ -53,6 +54,7 @@ import com.melluh.neotime.AppContainer
 import com.melluh.neotime.auth.SessionState
 import com.melluh.neotime.timeedit.Account
 import com.melluh.neotime.ui.login.LoginScreen
+import com.melluh.neotime.ui.map.MapScreen
 import com.melluh.neotime.ui.picker.PickerScreen
 import com.melluh.neotime.ui.rooms.RoomsScreen
 import com.melluh.neotime.ui.schedule.ScheduleScreen
@@ -78,7 +80,7 @@ fun NeotimeRoot(container: AppContainer) {
     val openLogin = { nav.navigate("login") { launchSingleTop = true } }
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
 
-    val onTab = route == "schedule" || route == "rooms"
+    val onTab = route == "schedule" || route == "rooms" || route == "map"
 
     Scaffold(
         bottomBar = {
@@ -108,6 +110,18 @@ fun NeotimeRoot(container: AppContainer) {
                         icon = { Icon(Icons.Filled.Place, contentDescription = null) },
                         label = { Text("Rooms") },
                     )
+                    NavigationBarItem(
+                        selected = route == "map",
+                        onClick = {
+                            nav.navigate("map") {
+                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        icon = { Icon(Icons.Filled.LocationOn, contentDescription = null) },
+                        label = { Text("Map") },
+                    )
                 }
             }
         },
@@ -132,6 +146,9 @@ fun NeotimeRoot(container: AppContainer) {
                         onOpenSettings = { nav.navigate("settings") },
                         onLogin = openLogin,
                     )
+                }
+                composable("map") {
+                    MapScreen(container = container, onOpenSettings = { nav.navigate("settings") })
                 }
                 composable("picker") { PickerScreen(container, onBack = { nav.popBackStack() }) }
                 composable("settings") { SettingsScreen(container, onBack = { nav.popBackStack() }, onLogin = openLogin) }
