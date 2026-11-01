@@ -42,9 +42,6 @@ object Availability {
     val LAST_START: LocalTime = LocalTime.of(22, 30)
     const val STEP_MINUTES = 15L
 
-    private val PARENTHESES = Regex("""\s*\(.*$""")
-    private val SPACING = Regex("""[\s_]+""")
-
     /** The next bookable slot start at or after [time]; null once the day's bookable hours are over. */
     fun nextSlot(time: LocalTime): LocalTime? {
         if (!time.isBefore(CLOSE)) return null
@@ -106,7 +103,7 @@ object Availability {
      * "CR 3014 (6p)" for "CR 3014 TNW students only!", "VR 176 1p" for "VR 176", "VR 170" for "VR_170".
      */
     fun busyByRoom(events: List<Event>, rooms: List<Room>, date: LocalDate): Map<String, List<TimeRange>> {
-        val names = rooms.map { it to normalize(it.name) }
+        val names = rooms.map { it to RoomNames.canonical(it.name) }
         val busy = mutableMapOf<String, MutableList<TimeRange>>()
         for (event in events) {
             val range = TimeRange(
@@ -114,7 +111,7 @@ object Availability {
                 if (event.end.toLocalDate().isAfter(date)) LocalTime.MAX else event.end.toLocalTime(),
             )
             for (hall in event.rooms) {
-                val key = normalize(hall.replace(PARENTHESES, ""))
+                val key = RoomNames.canonical(hall)
                 if (key.isEmpty()) continue
                 val exact = names.filter { it.second == key }
                 val matches = exact.ifEmpty { names.filter { (_, n) -> n.startsWith("$key ") || key.startsWith("$n ") } }
@@ -123,6 +120,4 @@ object Availability {
         }
         return busy
     }
-
-    private fun normalize(name: String): String = name.replace(SPACING, " ").trim()
 }

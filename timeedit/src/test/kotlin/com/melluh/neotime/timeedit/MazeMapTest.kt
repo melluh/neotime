@@ -216,4 +216,40 @@ class MazeMapTest {
     fun `malformed coordinates surface as MazeMapException`() {
         client.parseFeatures(poi(""""geometry": {"type": "Polygon", "coordinates": [[[1]]]}"""))
     }
+
+    @Test
+    fun `a room is located by identifier`() = runTest {
+        server.enqueue(MockResponse().setBody(Fixtures.read("mazemap/pois_identifier_VR275C.json")))
+        assertEquals(RoomLocation(667194, "VR275C", 1821, 6522), client.locate("VR275C"))
+        val url = server.takeRequest().requestUrl!!
+        assertEquals("VR275C", url.queryParameter("identifier"))
+        assertEquals("171", url.queryParameter("campusid"))
+    }
+
+    private fun located(vararg pois: String) = client.parseLocation("X1", """{"pois": [${pois.joinToString()}]}""")
+
+    private fun at(id: Int, floor: Int, extra: String = "") =
+        """{"poiId": $id, "identifier": "X1", "kind": "room", "buildingId": 9, "floorId": $floor$extra}"""
+
+    @Test
+    fun `an unknown identifier has no location`() {
+        assertNull(located())
+    }
+
+    @Test
+    fun `deleted rooms are not located`() {
+        assertNull(located(at(1, 5, """, "deleted": true""")))
+        assertEquals(2L, located(at(1, 5, """, "deleted": true"""), at(2, 6))?.poiId)
+    }
+
+    @Test
+    fun `rooms win from other features with the same identifier`() {
+        val desk = """{"poiId": 1, "identifier": "X1", "kind": "desk", "buildingId": 9, "floorId": 4}"""
+        assertEquals(RoomLocation(2, "X1", 9, 5), located(desk, at(2, 5)))
+    }
+
+    @Test
+    fun `an identifier on several floors is not guessed at`() {
+        assertNull(located(at(1, 5), at(2, 6)))
+    }
 }

@@ -8,13 +8,19 @@ import com.melluh.neotime.timeedit.MapBuilding
 import com.melluh.neotime.timeedit.MapFeature
 import com.melluh.neotime.timeedit.MazeMapClient
 import com.melluh.neotime.timeedit.MazeMapException
+import com.melluh.neotime.timeedit.RoomLocation
+import com.melluh.neotime.timeedit.RoomNames
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.IOException
@@ -32,6 +38,10 @@ data class MapSelection(val buildingId: Long?, val floorId: Long?)
 @Serializable
 private data class Cached<T>(val fetchedAtEpochMs: Long, val value: T)
 
+/** A lookup's outcome; [location] is null when MazeMap doesn't know the identifier. */
+@Serializable
+private data class CheckedLocation(val checkedAtEpochMs: Long, val location: RoomLocation? = null)
+
 /** MazeMap's data barely changes, so it's fetched on demand and kept for a week. */
 class MapRepository(
     private val client: MazeMapClient,
@@ -40,6 +50,10 @@ class MapRepository(
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+    private val locationsFile = File(cacheDir, "room-locations.json")
+    private val locationsSerializer = MapSerializer(String.serializer(), CheckedLocation.serializer())
+    private val locationsLock = Mutex()
+    private var locations: Map<String, CheckedLocation>? = null
 
     val lastSelection: Flow<MapSelection> = dataStore.data.map { MapSelection(it[LAST_BUILDING], it[LAST_FLOOR]) }
 
@@ -55,6 +69,50 @@ class MapRepository(
 
     suspend fun floorFeatures(floorId: Long): MapResult<List<MapFeature>> =
         cached("floor-$floorId.json", ListSerializer(MapFeature.serializer())) { client.floorFeatures(floorId) }
+
+    /**
+     * Where the room called [name] is, asking MazeMap only about rooms that are actually opened.
+     * Prefer [identifier] if TimeEdit gave one; otherwise this tries what the name could translate to.
+     * [MapResult.Ok] holds null when the room isn't on the map.
+     */
+    suspend fun locate(name: String, identifier: String? = null): MapResult<RoomLocation?> = locationsLock.withLock {
+        if (locations == null) locations = readLocations()
+        var failure: String? = null
+        for (candidate in identifier?.let(::listOf) ?: RoomNames.identifierCandidates(name)) {
+            val entry = locations?.get(candidate)
+            if (entry != null && isCurrent(entry)) {
+                if (entry.location != null) return@withLock MapResult.Ok(entry.location)
+                continue
+            }
+            try {
+                val location = client.locate(candidate)
+                saveLocation(candidate, CheckedLocation(now(), location))
+                if (location != null) return@withLock MapResult.Ok(location)
+            } catch (e: IOException) {
+                entry?.location?.let { return@withLock MapResult.Ok(it, stale = true) }
+                failure = OFFLINE_ROOM
+            } catch (e: MazeMapException) {
+                entry?.location?.let { return@withLock MapResult.Ok(it, stale = true) }
+                failure = e.message ?: "Couldn't find this room"
+            }
+        }
+        failure?.let { MapResult.Failed(it) } ?: MapResult.Ok(null)
+    }
+
+    private suspend fun readLocations(): Map<String, CheckedLocation> = withContext(Dispatchers.IO) {
+        runCatching { json.decodeFromString(locationsSerializer, locationsFile.readText()) }.getOrNull().orEmpty()
+    }
+
+    private suspend fun saveLocation(identifier: String, entry: CheckedLocation) {
+        val updated = locations.orEmpty() + (identifier to entry)
+        locations = updated
+        write(locationsFile, locationsSerializer, updated)
+    }
+
+    private fun isCurrent(entry: CheckedLocation): Boolean {
+        val age = Duration.ofMillis(now() - entry.checkedAtEpochMs)
+        return age < if (entry.location != null) LOCATION_MAX_AGE else MISSING_MAX_AGE
+    }
 
     private suspend fun <T> cached(name: String, serializer: KSerializer<T>, fetch: suspend () -> T): MapResult<T> {
         val file = File(cacheDir, name)
@@ -85,10 +143,13 @@ class MapRepository(
 
     private companion object {
         const val OFFLINE = "Offline. This map hasn't been downloaded yet."
+        const val OFFLINE_ROOM = "Offline. This room hasn't been looked up yet."
 
         // Ids from MazeMap; RoomRepository's room_building is a TimeEdit building name
         val LAST_BUILDING = longPreferencesKey("map_building_id")
         val LAST_FLOOR = longPreferencesKey("map_floor_id")
         val MAX_AGE: Duration = Duration.ofDays(7)
+        val LOCATION_MAX_AGE: Duration = Duration.ofDays(30)
+        val MISSING_MAX_AGE: Duration = Duration.ofDays(7)
     }
 }

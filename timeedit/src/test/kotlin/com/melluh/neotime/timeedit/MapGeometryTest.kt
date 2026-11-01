@@ -103,4 +103,12 @@ class MapGeometryTest {
         val removed = length(outline) - length(outline.withoutBridges())
         assertTrue("removed $removed m", removed > 62)
     }
+
+    @Test
+    fun `a point is inside a shape but not in its hole or beside it`() {
+        val shape = listOf(ring(0 to 0, 10 to 0, 10 to 10, 0 to 10, 0 to 0), ring(4 to 4, 6 to 4, 6 to 6, 4 to 6, 4 to 4))
+        assertTrue(at(2.0, 2.0) in shape)
+        assertTrue(at(5.0, 5.0) !in shape)
+        assertTrue(at(12.0, 5.0) !in shape)
+    }
 }

@@ -58,7 +58,7 @@ data class Event(
     val rooms: List<String> = emptyList(),
     val building: String? = null,
     val lecturers: List<String> = emptyList(),
-    /** MazeMap link for the room, when TimeEdit provides one. */
+    /** MazeMap links for [rooms], when TimeEdit provides them, comma-separated in the same order. */
     val locationUrl: String? = null,
     val extraInfo: String? = null,
     val resit: Boolean = false,
@@ -69,10 +69,25 @@ data class Event(
 
     val date: LocalDate get() = start.toLocalDate()
 
+    /** [rooms] with their MazeMap identifiers, which are only known if every room has a link. */
+    val places: List<RoomPlace>
+        get() {
+            val identifiers = locationUrl?.let { SHARE_POI.findAll(it).map { m -> m.groupValues[1] }.toList() }.orEmpty()
+            return rooms.mapIndexed { i, room -> RoomPlace(room, identifiers.takeIf { it.size == rooms.size }?.get(i)) }
+        }
+
     private companion object {
+        val SHARE_POI = Regex("""sharepoi=([^,&\s]+)""")
         val COURSE_SEPARATOR = Regex(""",\s(?=\S.*\.\s\d{6,})""")
         val COURSE_CODE = Regex("""\.\s\d{6,}$""")
     }
+}
+
+/** A room on the schedule. [identifier] comes from TimeEdit, so it needs no guessing. */
+data class RoomPlace(val name: String, val identifier: String?) {
+    /** The room on MazeMap's own site. */
+    val mapUrl: String?
+        get() = identifier?.let { "https://use.mazemap.com/#v=1&campusid=${MazeMapClient.UT_CAMPUS}&sharepoitype=identifier&sharepoi=$it" }
 }
 
 object LocalDateTimeSerializer : KSerializer<LocalDateTime> {

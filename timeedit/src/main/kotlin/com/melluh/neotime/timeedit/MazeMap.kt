@@ -61,6 +61,10 @@ data class MapFeature(
         get() = title?.takeIf { isDestination }?.removePrefix(LECTURE_HALL_PREFIX)
 }
 
+/** Where a room is, enough to open its floor and point it out. */
+@Serializable
+data class RoomLocation(val poiId: Long, val identifier: String, val buildingId: Long, val floorId: Long)
+
 /** Nearly every lecture hall has this in front of the name people actually use. */
 private const val LECTURE_HALL_PREFIX = "Collegezaal "
 
@@ -106,6 +110,17 @@ class MazeMapClient(
         return get(url).let { withContext(Dispatchers.Default) { parseFeatures(it) } }
     }
 
+    /** Where the room with this [identifier] is; null if nowhere, or if that can't be told for sure. */
+    suspend fun locate(identifier: String): RoomLocation? {
+        val url = base.newBuilder()
+            .addPathSegments("api/pois/")
+            .addQueryParameter("campusid", campusId.toString())
+            .addQueryParameter("identifier", identifier)
+            .addQueryParameter("srid", SRID)
+            .build()
+        return get(url).let { withContext(Dispatchers.Default) { parseLocation(identifier, it) } }
+    }
+
     // Whole floors are a lot of JSON, and these get called from the main thread
     private suspend fun get(url: HttpUrl): String = withContext(Dispatchers.IO) {
         http.newCall(Request.Builder().url(url).header("User-Agent", USER_AGENT).build()).execute().use { r ->
@@ -139,6 +154,14 @@ class MazeMapClient(
                 labelPoint = p.point?.point() ?: p.geometry?.point(),
             )
         }
+    }
+
+    internal fun parseLocation(identifier: String, body: String): RoomLocation? = parsing {
+        val found = json.decodeFromString<RawPois>(body).pois.filter { !it.deleted && it.identifier == identifier }
+        val pois = found.filter { it.kind == "room" }.ifEmpty { found }
+        val floors = pois.mapNotNull { p -> p.buildingId?.let { b -> p.floorId?.let { f -> b to f } } }.distinct()
+        // Identifiers aren't unique, and pointing at the wrong room is worse than at none
+        floors.singleOrNull()?.let { (building, floor) -> RoomLocation(pois.first().poiId, identifier, building, floor) }
     }
 
     private inline fun <T> parsing(block: () -> T): T = try {
@@ -177,6 +200,8 @@ private data class RawPoi(
     val kind: String? = null,
     val title: String? = null,
     val identifier: String? = null,
+    val buildingId: Long? = null,
+    val floorId: Long? = null,
     val deleted: Boolean = false,
     val types: List<RawPoiType> = emptyList(),
     val geometry: RawGeometry? = null,

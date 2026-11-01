@@ -11,6 +11,7 @@ import com.melluh.neotime.timeedit.Availability
 import com.melluh.neotime.timeedit.BookingView
 import com.melluh.neotime.timeedit.NotLoggedInException
 import com.melluh.neotime.timeedit.Room
+import com.melluh.neotime.timeedit.RoomNames
 import com.melluh.neotime.timeedit.TimeEditClient
 import com.melluh.neotime.timeedit.TimeEditException
 import com.melluh.neotime.timeedit.TimeRange
@@ -119,6 +120,24 @@ class RoomRepository(
         } catch (e: TimeEditException) {
             RoomsResult.Failed(e.message ?: "Couldn't load rooms")
         }
+    }
+
+    /**
+     * Every bookable room by the MazeMap identifiers it could have, to compare with a floor's
+     * features without asking MazeMap anything. Empty when logged out, since the lists need login.
+     */
+    suspend fun bookableByIdentifier(): Map<String, Room> {
+        if (!session.ensureSession()) return emptyMap()
+        val rooms = bookingView().buildings.flatMap { building ->
+            try {
+                rooms(building)
+            } catch (e: IOException) {
+                emptyList()
+            } catch (e: TimeEditException) {
+                emptyList()
+            }
+        }
+        return rooms.flatMap { room -> RoomNames.identifierCandidates(room.name).map { it to room } }.toMap()
     }
 
     private suspend fun rooms(building: String): List<Room> {

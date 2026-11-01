@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
@@ -49,6 +50,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -64,10 +67,12 @@ import com.melluh.neotime.data.RoomsResult
 import com.melluh.neotime.timeedit.Availability
 import com.melluh.neotime.timeedit.BookingView
 import com.melluh.neotime.timeedit.Room
+import com.melluh.neotime.timeedit.RoomNames
 import com.melluh.neotime.timeedit.TIMEEDIT_ZONE
 import com.melluh.neotime.timeedit.TimeRange
 import com.melluh.neotime.ui.AccountChip
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -75,6 +80,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -163,11 +169,16 @@ class RoomsViewModel(private val container: AppContainer) : ViewModel() {
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing
 
+    /** A room another tab sent here, to point out once it's loaded. */
+    private val _focused = MutableStateFlow<Room?>(null)
+    val focused: StateFlow<Room?> = _focused
+
     private val reload = MutableStateFlow(0)
     private var loadedAt: Instant? = null
+    private val booked: Job
 
     init {
-        viewModelScope.launch {
+        booked = viewModelScope.launch {
             _booking.value = container.rooms.bookingView()
             val last = container.rooms.lastBuilding.first()
             _building.value = last?.takeIf { it in _booking.value.buildings } ?: _booking.value.buildings.first()
@@ -193,6 +204,21 @@ class RoomsViewModel(private val container: AppContainer) : ViewModel() {
                     _refreshing.value = false
                 }
         }
+        viewModelScope.launch {
+            container.focus.inRooms.filterNotNull().collect { room ->
+                // After the startup job picks a building, or it would overwrite this one
+                booked.join()
+                room.building?.let(::selectBuilding)
+                // A room that doesn't fit the filter wouldn't be listed
+                _filter.update { it.copy(people = 1, type = null) }
+                _focused.value = room
+                container.focus.clearRooms()
+            }
+        }
+    }
+
+    fun clearFocused() {
+        _focused.value = null
     }
 
     fun selectBuilding(building: String) {
@@ -256,7 +282,7 @@ class RoomsViewModel(private val container: AppContainer) : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RoomsScreen(container: AppContainer, onOpenSettings: () -> Unit, onLogin: () -> Unit) {
+fun RoomsScreen(container: AppContainer, onOpenSettings: () -> Unit, onLogin: () -> Unit, onOpenMap: () -> Unit) {
     val vm = viewModel { RoomsViewModel(container) }
     val state by vm.state.collectAsStateWithLifecycle()
     val refreshing by vm.refreshing.collectAsStateWithLifecycle()
@@ -282,6 +308,18 @@ fun RoomsScreen(container: AppContainer, onOpenSettings: () -> Unit, onLogin: ()
         }
     }
 
+    val onShowOnMap: (Room) -> Unit = { room ->
+        scope.launch {
+            val problem = container.focus.showOnMap(room.name)
+            if (problem == null) {
+                onOpenMap()
+            } else {
+                snackbar.currentSnackbarData?.dismiss()
+                snackbar.showSnackbar(problem)
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -298,7 +336,7 @@ fun RoomsScreen(container: AppContainer, onOpenSettings: () -> Unit, onLogin: ()
                 onRefresh = vm::refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                RoomFinder(vm, onBook, onLogin)
+                RoomFinder(vm, onBook, onShowOnMap, onLogin)
             }
         }
     }
@@ -306,7 +344,7 @@ fun RoomsScreen(container: AppContainer, onOpenSettings: () -> Unit, onLogin: ()
 
 /** The questions in the order you'd ask them, with the rooms that fit below. */
 @Composable
-private fun RoomFinder(vm: RoomsViewModel, onBook: (Room) -> Unit, onLogin: () -> Unit) {
+private fun RoomFinder(vm: RoomsViewModel, onBook: (Room) -> Unit, onShowOnMap: (Room) -> Unit, onLogin: () -> Unit) {
     val booking by vm.booking.collectAsStateWithLifecycle()
     val selected by vm.building.collectAsStateWithLifecycle()
     val filter by vm.filter.collectAsStateWithLifecycle()
@@ -326,7 +364,31 @@ private fun RoomFinder(vm: RoomsViewModel, onBook: (Room) -> Unit, onLogin: () -
     val onToday = state.date == state.now.toLocalDate()
     val past = state.now.toLocalTime().takeIf { onToday }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    val focused by vm.focused.collectAsStateWithLifecycle()
+    val list = rememberLazyListState()
+    val headerPx = with(LocalDensity.current) { STICKY_HEADER_HEIGHT.roundToPx() }
+    LaunchedEffect(focused, state) {
+        val room = focused ?: return@LaunchedEffect
+        if (state.loading || state.building != room.building) return@LaunchedEffect
+        if (taken.any { it.room.id == room.id }) showTaken = true
+        val favoriteRows = if (favorites.isEmpty()) 0 else favorites.size + 1
+        // The questions and sticky header, then these sections in the order the list has them
+        val firstRoom = QUESTIONS + 1 + favoriteRows + 1
+        val hint = if (free.isEmpty() && taken.isNotEmpty()) 1 else 0
+        val index = when {
+            room.id in favoriteIds -> QUESTIONS + 2 + favorites.indexOfFirst { it.id == room.id }
+            free.any { it.room.id == room.id } -> firstRoom + free.indexOfFirst { it.room.id == room.id }
+            taken.any { it.room.id == room.id } -> firstRoom + hint + 1 + taken.indexOfFirst { it.room.id == room.id }
+            else -> null
+        }
+        if (index != null) {
+            list.animateScrollToItem(index, -headerPx)
+            delay(FOCUS_MS)
+        }
+        vm.clearFocused()
+    }
+
+    LazyColumn(Modifier.fillMaxSize(), state = list) {
         item {
             Question("Where") {
                 ChoiceChips(booking.buildings, selected, { it.orEmpty() }, onSelect = { it?.let(vm::selectBuilding) })
@@ -377,13 +439,13 @@ private fun RoomFinder(vm: RoomsViewModel, onBook: (Room) -> Unit, onLogin: () -
             item { SectionHeader("Favorites") }
             items(favorites, key = { "fav-${it.id}" }) { room ->
                 val status = statuses.firstOrNull { it.room.id == room.id }
-                RoomRow(room, status, window, past, favorite = true, showBuilding = true, fits(status), vm::toggleFavorite, onBook)
+                RoomRow(room, status, window, past, favorite = true, showBuilding = true, fits(status), room.id == focused?.id, vm::toggleFavorite, onBook, onShowOnMap)
             }
         }
         if (state.result is RoomsResult.Ok) {
             state.building?.let { item { SectionHeader(it) } }
             items(free, key = { it.room.id }) { status ->
-                RoomRow(status.room, status, window, past, favorite = false, showBuilding = false, true, vm::toggleFavorite, onBook)
+                RoomRow(status.room, status, window, past, favorite = false, showBuilding = false, true, status.room.id == focused?.id, vm::toggleFavorite, onBook, onShowOnMap)
             }
             if (matching.isEmpty() && here.size > favorites.count { it.building == state.building }) {
                 item { Hint("No rooms here that fit this group. Try fewer people or another building.") }
@@ -400,7 +462,7 @@ private fun RoomFinder(vm: RoomsViewModel, onBook: (Room) -> Unit, onLogin: () -
             }
             if (showTaken) {
                 items(taken, key = { it.room.id }) { status ->
-                    RoomRow(status.room, status, window, past, favorite = false, showBuilding = false, false, vm::toggleFavorite, onBook)
+                    RoomRow(status.room, status, window, past, favorite = false, showBuilding = false, false, status.room.id == focused?.id, vm::toggleFavorite, onBook, onShowOnMap)
                 }
             }
         }
@@ -597,14 +659,17 @@ private fun RoomRow(
     favorite: Boolean,
     showBuilding: Boolean,
     bookable: Boolean,
+    highlighted: Boolean,
     onToggleFavorite: (Room) -> Unit,
     onBook: (Room) -> Unit,
+    onShowOnMap: (Room) -> Unit,
 ) {
     val details = listOfNotNull(
         room.building.takeIf { showBuilding },
         room.capacity?.let { if (it == 1) "1 person" else "$it people" },
     ).joinToString(" · ")
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+    val background = if (highlighted) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+    Column(Modifier.fillMaxWidth().background(background).padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(room.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -618,6 +683,11 @@ private fun RoomRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier.height(36.dp),
                 ) { Text("Book") }
+            }
+            if (RoomNames.identifierCandidates(room.name).isNotEmpty()) {
+                IconButton(onClick = { onShowOnMap(room) }) {
+                    Icon(Icons.Filled.LocationOn, contentDescription = "Show on map", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
             IconButton(onClick = { onToggleFavorite(room) }) {
                 Icon(
@@ -640,6 +710,11 @@ private fun RoomRow(
 }
 
 private const val CLOCK_CHECK_MS = 60_000L
+private const val FOCUS_MS = 3_000L
+
+/** Where, When and Who, ahead of the sticky header. */
+private const val QUESTIONS = 3
+private val STICKY_HEADER_HEIGHT = 96.dp
 
 private val DURATIONS = listOf(30, 60, 120, 180, 240)
 private val PEOPLE = listOf(1, 2, 4, 6, 8)

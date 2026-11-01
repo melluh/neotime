@@ -78,6 +78,13 @@ fun NeotimeRoot(container: AppContainer) {
     }
 
     val openLogin = { nav.navigate("login") { launchSingleTop = true } }
+    val openTab = { tab: String ->
+        nav.navigate(tab) {
+            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
 
     val onTab = route == "schedule" || route == "rooms" || route == "map"
@@ -88,37 +95,19 @@ fun NeotimeRoot(container: AppContainer) {
                 NavigationBar {
                     NavigationBarItem(
                         selected = route == "schedule",
-                        onClick = {
-                            nav.navigate("schedule") {
-                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
+                        onClick = { openTab("schedule") },
                         icon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
                         label = { Text("Schedule") },
                     )
                     NavigationBarItem(
                         selected = route == "rooms",
-                        onClick = {
-                            nav.navigate("rooms") {
-                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
+                        onClick = { openTab("rooms") },
                         icon = { Icon(Icons.Filled.Place, contentDescription = null) },
                         label = { Text("Rooms") },
                     )
                     NavigationBarItem(
                         selected = route == "map",
-                        onClick = {
-                            nav.navigate("map") {
-                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
+                        onClick = { openTab("map") },
                         icon = { Icon(Icons.Filled.LocationOn, contentDescription = null) },
                         label = { Text("Map") },
                     )
@@ -138,6 +127,7 @@ fun NeotimeRoot(container: AppContainer) {
                         container = container,
                         onOpenPicker = { nav.navigate("picker") },
                         onOpenSettings = { nav.navigate("settings") },
+                        onOpenMap = { openTab("map") },
                     )
                 }
                 composable("rooms") {
@@ -145,10 +135,15 @@ fun NeotimeRoot(container: AppContainer) {
                         container = container,
                         onOpenSettings = { nav.navigate("settings") },
                         onLogin = openLogin,
+                        onOpenMap = { openTab("map") },
                     )
                 }
                 composable("map") {
-                    MapScreen(container = container, onOpenSettings = { nav.navigate("settings") })
+                    MapScreen(
+                        container = container,
+                        onOpenSettings = { nav.navigate("settings") },
+                        onOpenRooms = { openTab("rooms") },
+                    )
                 }
                 composable("picker") { PickerScreen(container, onBack = { nav.popBackStack() }) }
                 composable("settings") { SettingsScreen(container, onBack = { nav.popBackStack() }, onLogin = openLogin) }

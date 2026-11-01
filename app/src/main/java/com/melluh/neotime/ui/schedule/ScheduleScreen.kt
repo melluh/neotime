@@ -64,6 +64,8 @@ import com.melluh.neotime.timeedit.DataSource
 import com.melluh.neotime.timeedit.Event
 import com.melluh.neotime.timeedit.ObjectRef
 import com.melluh.neotime.timeedit.PersonMatch
+import com.melluh.neotime.timeedit.RoomNames
+import com.melluh.neotime.timeedit.RoomPlace
 import com.melluh.neotime.timeedit.TIMEEDIT_ZONE
 import com.melluh.neotime.timeedit.isPlaceholderLecturer
 import com.melluh.neotime.ui.AccountChip
@@ -124,6 +126,9 @@ class ScheduleViewModel(private val container: AppContainer) : ViewModel() {
 
     fun lecturerSearchUrl(name: String): String = container.lecturers.searchUrl(name)
 
+    /** Returns why [place] can't be shown, or null if the Map tab can open it. */
+    suspend fun showOnMap(place: RoomPlace): String? = container.focus.showOnMap(place.name, place.identifier)
+
     fun messageShown() {
         _messages.value = null
     }
@@ -138,7 +143,7 @@ private const val CURRENT_WEEK_PAGE = WEEK_PAGES / 2
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScheduleScreen(container: AppContainer, onOpenPicker: () -> Unit, onOpenSettings: () -> Unit) {
+fun ScheduleScreen(container: AppContainer, onOpenPicker: () -> Unit, onOpenSettings: () -> Unit, onOpenMap: () -> Unit) {
     val vm = viewModel { ScheduleViewModel(container) }
     val snapshot by vm.snapshot.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
@@ -209,7 +214,18 @@ fun ScheduleScreen(container: AppContainer, onOpenPicker: () -> Unit, onOpenSett
         }
     }
 
-    selected?.let { event -> EventSheet(event, vm, showLecturerHint = snapshot.source == DataSource.PUBLIC) { selected = null } }
+    selected?.let { event ->
+        EventSheet(
+            event,
+            vm,
+            showLecturerHint = snapshot.source == DataSource.PUBLIC,
+            onOpenMap = {
+                selected = null
+                onOpenMap()
+            },
+            onDismiss = { selected = null },
+        )
+    }
 }
 
 @Composable
@@ -251,8 +267,20 @@ private fun EmptyState(onOpenPicker: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EventSheet(event: Event, vm: ScheduleViewModel, showLecturerHint: Boolean, onDismiss: () -> Unit) {
+private fun EventSheet(
+    event: Event,
+    vm: ScheduleViewModel,
+    showLecturerHint: Boolean,
+    onOpenMap: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var mapProblem by remember(event) { mutableStateOf<String?>(null) }
+    val places = event.places.filter { it.identifier != null || RoomNames.identifierCandidates(it.name).isNotEmpty() }
+    // Single links are kept as they are, in case one has no room id. Joined ones can't be opened whole.
+    val links = event.places.mapNotNull { place -> place.mapUrl?.let { place.name to it } }
+        .ifEmpty { listOfNotNull(event.locationUrl?.let { null to it.substringBefore(',') }) }
     val lecturers by vm.lecturers.collectAsStateWithLifecycle()
     LaunchedEffect(event) { vm.loadLecturers(event.lecturers) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -284,9 +312,20 @@ private fun EventSheet(event: Event, vm: ScheduleViewModel, showLecturerHint: Bo
             }
             event.coursePart?.let { Detail("Part", it) }
             event.extraInfo?.let { Detail("Info", it) }
-            event.locationUrl?.let { url ->
+            places.forEach { place ->
+                Button(
+                    onClick = {
+                        scope.launch {
+                            mapProblem = vm.showOnMap(place)
+                            if (mapProblem == null) onOpenMap()
+                        }
+                    },
+                ) { Text(if (places.size > 1) "Show ${RoomNames.canonical(place.name)} on map" else "Show on map") }
+            }
+            mapProblem?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
+            links.forEach { (name, url) ->
                 OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }) {
-                    Text("Open in MazeMap")
+                    Text(if (links.size > 1 && name != null) "Open ${RoomNames.canonical(name)} in MazeMap" else "Open in MazeMap")
                 }
             }
         }

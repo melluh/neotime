@@ -30,6 +30,16 @@ private const val MAX_OPPOSITE_COS = -0.98
  * where they overlap goes, as a long outer wall can carry on past the end of a bridge. What's left
  * is then joined back up across the mouths of the bridges.
  */
+/** Whether [point] is inside, counting holes and separate parts the way even-odd fill draws them. */
+operator fun Rings.contains(point: GeoPoint): Boolean = sumOf { ring ->
+    ring.indices.count { i ->
+        val a = ring[i]
+        val b = ring[(i + 1) % ring.size]
+        (a.lat > point.lat) != (b.lat > point.lat) &&
+            point.lon < a.lon + (point.lat - a.lat) / (b.lat - a.lat) * (b.lon - a.lon)
+    }
+} % 2 == 1
+
 fun Rings.withoutBridges(): Rings {
     val lonScale = cos(Math.toRadians(firstOrNull()?.firstOrNull()?.lat ?: return this)) * METRES_PER_DEGREE_LON
 

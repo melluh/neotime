@@ -10,8 +10,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -19,11 +21,13 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,21 +41,30 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.melluh.neotime.AppContainer
+import com.melluh.neotime.auth.SessionState
 import com.melluh.neotime.data.MapResult
 import com.melluh.neotime.data.MapSelection
 import com.melluh.neotime.timeedit.MapBuilding
 import com.melluh.neotime.timeedit.MapFeature
 import com.melluh.neotime.timeedit.MapFloor
+import com.melluh.neotime.timeedit.Room
+import com.melluh.neotime.timeedit.RoomLocation
 import com.melluh.neotime.ui.AccountChip
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** [features] belong to [floor]. */
+/** A room to point out. Not a data class: asking for the same room again should move there again. */
+class MapFocus(val poiId: Long)
+
+/** [features] belong to [floor]. [bookable] holds project rooms by their MazeMap identifiers. */
 data class MapUiState(
     val loading: Boolean = true,
     val buildings: List<MapBuilding> = emptyList(),
@@ -60,6 +73,8 @@ data class MapUiState(
     val features: List<MapFeature> = emptyList(),
     val stale: Boolean = false,
     val error: String? = null,
+    val focus: MapFocus? = null,
+    val bookable: Map<String, Room> = emptyMap(),
 )
 
 class MapViewModel(private val container: AppContainer) : ViewModel() {
@@ -76,6 +91,27 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
             // collectLatest drops a floor that's still loading when another one gets picked
             combine(picked, reload) { selection, _ -> selection }.collectLatest { load(it) }
         }
+        viewModelScope.launch {
+            container.focus.onMap.filterNotNull().collect {
+                focus(it)
+                container.focus.clearMap()
+            }
+        }
+        viewModelScope.launch {
+            // Room lists need a login, so a login can change what's bookable
+            container.session.state
+                .map { it !is SessionState.LoggedOut && it !is SessionState.NeedsInteractiveLogin }
+                .distinctUntilChanged()
+                .collectLatest {
+                    val bookable = container.rooms.bookableByIdentifier()
+                    _state.update { it.copy(bookable = bookable) }
+                }
+        }
+    }
+
+    private fun focus(location: RoomLocation) {
+        _state.update { it.copy(focus = MapFocus(location.poiId)) }
+        picked.value = MapSelection(location.buildingId, location.floorId)
     }
 
     private suspend fun load(selection: MapSelection?) {
@@ -93,12 +129,18 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
             }
         }
         val wanted = selection ?: container.maps.lastSelection.first()
-        val building = buildings.firstOrNull { it.id == wanted.buildingId } ?: buildings.firstOrNull()
-        val floor = building?.floors?.firstOrNull { it.id == wanted.floorId } ?: building?.defaultFloor
+        val building = buildings.firstOrNull { it.id == wanted.buildingId }
+        // A building asked for by name must not quietly become another one; a remembered one can
+        if (building == null && selection != null) {
+            _state.update { it.copy(loading = false, buildings = buildings, focus = null, error = "This building isn't on the map.") }
+            return
+        }
+        val shown = building ?: buildings.firstOrNull()
+        val floor = shown?.floors?.firstOrNull { it.id == wanted.floorId } ?: shown?.defaultFloor
         _state.update {
             it.copy(
                 buildings = buildings,
-                building = building,
+                building = shown,
                 floor = floor,
                 features = if (it.floor?.id == floor?.id) it.features else emptyList(),
                 stale = buildingsStale,
@@ -108,7 +150,7 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
             _state.update { it.copy(loading = false) }
             return
         }
-        if (selection != null && building != null) container.maps.select(building.id, floor.id)
+        if (selection != null && shown != null) container.maps.select(shown.id, floor.id)
         when (val result = container.maps.floorFeatures(floor.id)) {
             is MapResult.Ok -> _state.update {
                 it.copy(loading = false, features = result.value, stale = buildingsStale || result.stale)
@@ -118,10 +160,12 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun selectBuilding(building: MapBuilding) {
+        _state.update { it.copy(focus = null) }
         picked.value = MapSelection(building.id, building.defaultFloor?.id)
     }
 
     fun selectFloor(floor: MapFloor) {
+        _state.update { it.copy(focus = null) }
         picked.value = MapSelection(_state.value.building?.id, floor.id)
     }
 
@@ -132,13 +176,17 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit) {
+fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: () -> Unit) {
     val vm = viewModel { MapViewModel(container) }
     val state by vm.state.collectAsStateWithLifecycle()
     val session by container.session.state.collectAsStateWithLifecycle()
 
     // Up here because the canvas goes away while a floor loads, and the view has to outlast that
     val viewport = remember(state.building?.id) { MapViewport() }
+    val bookable = remember(state.features, state.bookable) {
+        state.features.filter { it.identifier in state.bookable }.map { it.id }.toSet()
+    }
+    var tapped by remember { mutableStateOf<MapFeature?>(null) }
 
     Scaffold(
         topBar = {
@@ -171,7 +219,17 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit) {
                 when {
                     state.error != null -> Notice(state.error.orEmpty(), onRetry = vm::retry)
                     building != null && floor != null && state.features.isNotEmpty() ->
-                        FloorCanvas(building, floor, state.features, viewport, Modifier.fillMaxSize())
+                        FloorCanvas(
+                            building,
+                            floor,
+                            state.features,
+                            viewport,
+                            bookable = bookable,
+                            focused = state.focus?.poiId,
+                            focusKey = state.focus,
+                            onTap = { tapped = it },
+                            modifier = Modifier.fillMaxSize(),
+                        )
                     !state.loading -> Notice("Nothing is mapped here.")
                 }
                 Text(
@@ -180,6 +238,37 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
                 )
+            }
+        }
+    }
+
+    tapped?.let { feature ->
+        RoomSheet(
+            feature,
+            room = state.bookable[feature.identifier],
+            onViewInRooms = { room ->
+                tapped = null
+                container.focus.showInRooms(room)
+                onOpenRooms()
+            },
+            onDismiss = { tapped = null },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RoomSheet(feature: MapFeature, room: Room?, onViewInRooms: (Room) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(room?.name ?: feature.label.orEmpty(), style = MaterialTheme.typography.titleLarge)
+            if (room != null) {
+                Text(
+                    room.capacity?.let { if (it == 1) "Bookable · 1 person" else "Bookable · $it people" } ?: "Bookable",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(onClick = { onViewInRooms(room) }) { Text("View in Rooms") }
             }
         }
     }
@@ -210,7 +299,14 @@ private fun BuildingPicker(buildings: List<MapBuilding>, selected: MapBuilding?,
 /** Top floor first, the way a lift panel reads. */
 @Composable
 private fun FloorPicker(floors: List<MapFloor>, selected: MapFloor?, onSelect: (MapFloor) -> Unit) {
+    val list = rememberLazyListState()
+    // A room opened from another tab can be on a floor further along the row
+    LaunchedEffect(selected?.id) {
+        val index = floors.asReversed().indexOfFirst { it.id == selected?.id }
+        if (index >= 0) list.animateScrollToItem(index)
+    }
     LazyRow(
+        state = list,
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
