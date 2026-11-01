@@ -41,6 +41,7 @@ import java.util.Locale
 fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onLogin: () -> Unit) {
     val session by container.session.state.collectAsStateWithLifecycle()
     val snapshot by container.schedule.snapshot.collectAsStateWithLifecycle()
+    val osirisAllowed by container.registrations.allowed.collectAsStateWithLifecycle(initialValue = false)
     val scope = container.scope
 
     Scaffold(
@@ -75,6 +76,11 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onLogin: () -> U
                         }
                     }
                 }
+                OsirisCard(
+                    allowed = osirisAllowed,
+                    onAllowedChange = { scope.launch { container.registrations.setAllowed(it) } },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             Card(Modifier.fillMaxWidth()) {

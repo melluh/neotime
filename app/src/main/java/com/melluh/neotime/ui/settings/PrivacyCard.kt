@@ -39,6 +39,10 @@ private val CONTACTED_DOMAINS = listOf(
         listOf("*.surfconext.nl", "*.microsoftonline.com", "*.microsoft.com"),
     ),
     DomainGroup(
+        "Your course registrations (OSIRIS)",
+        listOf("utwente.osiris-student.nl", "osiris.utwente.nl", "osi-auth-server-prd.osiris-link.nl"),
+    ),
+    DomainGroup(
         "Lecturer profiles and photos",
         listOf("people.utwente.nl", "utwente.becdn.net"),
     ),

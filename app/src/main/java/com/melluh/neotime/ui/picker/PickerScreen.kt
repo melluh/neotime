@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +17,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -24,12 +28,18 @@ import androidx.compose.material3.InputChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,8 +48,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.melluh.neotime.AppContainer
+import com.melluh.neotime.auth.SessionState
+import com.melluh.neotime.data.Registration
+import com.melluh.neotime.data.RegistrationsState
 import com.melluh.neotime.timeedit.ObjectRef
 import com.melluh.neotime.timeedit.ObjectType
+import com.melluh.neotime.ui.settings.OSIRIS_CONSENT_EXPLANATION
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -48,6 +62,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+private const val MIN_QUERY_LENGTH = 2
 
 data class SearchState(val loading: Boolean = false, val results: List<ObjectRef> = emptyList(), val error: String? = null)
 
@@ -64,7 +80,7 @@ class PickerViewModel(private val container: AppContainer) : ViewModel() {
     init {
         viewModelScope.launch {
             combine(query.debounce(400), type) { q, t -> q.trim() to t }.collect { (q, t) ->
-                if (q.length < 2) {
+                if (q.length < MIN_QUERY_LENGTH) {
                     _search.value = SearchState()
                     return@collect
                 }
@@ -76,6 +92,19 @@ class PickerViewModel(private val container: AppContainer) : ViewModel() {
                 }
             }
         }
+    }
+
+    /** Runs in the app scope: leaving the screen shouldn't throw away a sign-in that's nearly done. */
+    fun refreshRegistrations(force: Boolean = false) {
+        container.scope.launch { container.registrations.refresh(force) }
+    }
+
+    fun allowOsiris() {
+        container.scope.launch { container.registrations.setAllowed(true) }
+    }
+
+    fun declineOsiris() {
+        container.scope.launch { container.registrations.decline() }
     }
 
     fun toggle(ref: ObjectRef) = viewModelScope.launch {
@@ -93,6 +122,19 @@ fun PickerScreen(container: AppContainer, onBack: () -> Unit) {
     val type by vm.type.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val search by vm.search.collectAsStateWithLifecycle()
+    val registrations by container.registrations.state.collectAsStateWithLifecycle()
+    val session by container.session.state.collectAsStateWithLifecycle()
+    val showRegistrations = session !is SessionState.LoggedOut && query.trim().length < MIN_QUERY_LENGTH
+
+    val osirisAllowed by container.registrations.allowed.collectAsStateWithLifecycle(initialValue = null)
+    val askForOsiris by container.registrations.shouldAsk.collectAsStateWithLifecycle(initialValue = false)
+    var showDeclinedNotice by rememberSaveable { mutableStateOf(false) }
+
+    if (showDeclinedNotice) DeclinedNotice(onDismiss = { showDeclinedNotice = false })
+
+    LaunchedEffect(session is SessionState.LoggedOut, osirisAllowed) {
+        if (osirisAllowed == true) vm.refreshRegistrations()
+    }
 
     Scaffold(
         topBar = {
@@ -138,20 +180,104 @@ fun PickerScreen(container: AppContainer, onBack: () -> Unit) {
                 Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
             }
             LazyColumn(Modifier.fillMaxSize()) {
+                if (showRegistrations && askForOsiris) {
+                    item(key = "registrations-consent") {
+                        RegistrationsConsent(
+                            onAllow = vm::allowOsiris,
+                            onDecline = {
+                                vm.declineOsiris()
+                                showDeclinedNotice = true
+                            },
+                        )
+                    }
+                }
+                if (showRegistrations && osirisAllowed == true) {
+                    item(key = "registrations-header") {
+                        RegistrationsHeader(registrations, onRetry = { vm.refreshRegistrations(force = true) })
+                    }
+                    items(registrations.items, key = { "registration-${it.code}-${it.block}" }) { registration ->
+                        val ref = registration.ref
+                        ListItem(
+                            headlineContent = { Text(registration.name) },
+                            supportingContent = { Text(registration.subtitle()) },
+                            trailingContent = ref?.let {
+                                { ToggleButton(added = selection.any { it.id == ref.id }, onClick = { vm.toggle(ref) }) }
+                            },
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                        )
+                    }
+                }
                 items(search.results, key = { it.id }) { ref ->
-                    val added = selection.any { it.id == ref.id }
                     ListItem(
                         headlineContent = { Text(ref.name.substringBefore(',')) },
                         supportingContent = ref.name.substringAfter(',', "").trim().takeIf { it.isNotEmpty() }?.let { { Text(it) } },
                         trailingContent = {
-                            IconButton(onClick = { vm.toggle(ref) }) {
-                                Icon(if (added) Icons.Filled.Check else Icons.Filled.Add, contentDescription = if (added) "Remove" else "Add")
-                            }
+                            ToggleButton(added = selection.any { it.id == ref.id }, onClick = { vm.toggle(ref) })
                         },
                         modifier = Modifier.padding(horizontal = 4.dp),
                     )
                 }
             }
+        }
+    }
+}
+
+private fun Registration.subtitle(): String =
+    if (ref == null) "$code · Not on TimeEdit" else listOfNotNull(code, block).joinToString(" · ")
+
+@Composable
+private fun ToggleButton(added: Boolean, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(if (added) Icons.Filled.Check else Icons.Filled.Add, contentDescription = if (added) "Remove" else "Add")
+    }
+}
+
+@Composable
+private fun DeclinedNotice(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = { Text("This won't show again. No data will be read from OSIRIS. If you want, you can still enable this feature later from the settings page.") },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("OK") }
+        },
+    )
+}
+
+@Composable
+private fun RegistrationsConsent(onAllow: () -> Unit, onDecline: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("Your current registrations", style = MaterialTheme.typography.titleSmall)
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Allow fetching from OSIRIS?", style = MaterialTheme.typography.titleMedium)
+                Text(OSIRIS_CONSENT_EXPLANATION, style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = onAllow) { Text("Allow") }
+                    OutlinedButton(onClick = onDecline) { Text("No") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RegistrationsHeader(state: RegistrationsState, onRetry: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp)) {
+        Text("Your current registrations", style = MaterialTheme.typography.titleSmall)
+        when {
+            state.loading -> LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp))
+            state.error != null -> {
+                Text(state.error, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = onRetry, contentPadding = PaddingValues(0.dp)) { Text("Try again") }
+            }
+            state.loadedAt != null && state.items.isEmpty() -> Text(
+                "OSIRIS lists no current course registrations.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
