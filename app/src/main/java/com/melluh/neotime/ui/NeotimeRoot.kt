@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
@@ -258,18 +259,34 @@ fun AccountChip(state: SessionState, onClick: () -> Unit) {
         color = if (account != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
         modifier = Modifier.padding(end = 8.dp),
     ) {
-        Text(
-            text = account?.initials() ?: "Log in",
-            style = MaterialTheme.typography.labelLarge,
-            color = if (account != null) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-        )
+        if (account == null) {
+            Text(
+                text = "Log in",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+        } else {
+            Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
+                val initial = account.initial()
+                if (initial != null) {
+                    Text(
+                        text = initial,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                } else {
+                    Icon(
+                        Icons.Filled.Person,
+                        contentDescription = "Account",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        }
     }
 }
 
-fun Account.initials(): String {
-    val name = displayName ?: return studentNumber ?: "?"
-    return name.split(' ').filter { it.isNotEmpty() }.let { parts ->
-        (parts.first().take(1) + if (parts.size > 1) parts.last().take(1) else "").uppercase()
-    }
-}
+/** The first letter of the display name, or null when there is no name to take it from. */
+fun Account.initial(): String? = displayName?.firstOrNull { it.isLetter() }?.uppercase()
