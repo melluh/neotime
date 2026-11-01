@@ -84,11 +84,7 @@ data class Event(
 }
 
 /** A room on the schedule. [identifier] comes from TimeEdit, so it needs no guessing. */
-data class RoomPlace(val name: String, val identifier: String?) {
-    /** The room on MazeMap's own site. */
-    val mapUrl: String?
-        get() = identifier?.let { "https://use.mazemap.com/#v=1&campusid=${MazeMapClient.UT_CAMPUS}&sharepoitype=identifier&sharepoi=$it" }
-}
+data class RoomPlace(val name: String, val identifier: String?)
 
 object LocalDateTimeSerializer : KSerializer<LocalDateTime> {
     override val descriptor = PrimitiveSerialDescriptor("LocalDateTime", PrimitiveKind.STRING)

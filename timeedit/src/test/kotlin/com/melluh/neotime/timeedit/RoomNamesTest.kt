@@ -74,7 +74,6 @@ class RoomNamesTest {
             event(listOf("SP 1", "SP 2"), "${url}SPC101").places,
         )
         assertEquals(listOf(RoomPlace("SP 1", null)), event(listOf("SP 1"), null).places)
-        assertEquals("${url}SPC101", RoomPlace("SP 1", "SPC101").mapUrl)
     }
 
     private object Fixed {

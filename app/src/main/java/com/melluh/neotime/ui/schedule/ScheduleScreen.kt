@@ -1,6 +1,5 @@
 package com.melluh.neotime.ui.schedule
 
-import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -41,10 +39,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -285,14 +281,10 @@ private fun EventSheet(
     onOpenMap: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var mapProblem by remember(event) { mutableStateOf<String?>(null) }
     var openedLecturer by remember(event) { mutableStateOf<String?>(null) }
     val places = event.places.filter { it.identifier != null || RoomNames.identifierCandidates(it.name).isNotEmpty() }
-    // Single links are kept as they are, in case one has no room id. Joined ones can't be opened whole.
-    val links = event.places.mapNotNull { place -> place.mapUrl?.let { place.name to it } }
-        .ifEmpty { listOfNotNull(event.locationUrl?.let { null to it.substringBefore(',') }) }
     val lecturers by vm.lecturers.collectAsStateWithLifecycle()
     LaunchedEffect(event) { vm.loadLecturers(event.lecturers) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -304,10 +296,7 @@ private fun EventSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Detail("When", "${event.start.format(DAY_FORMAT)}, ${event.start.toLocalTime()} – ${event.end.toLocalTime()}")
-            Detail(
-                "Where",
-                if (event.rooms.isEmpty()) "Not published yet" else event.rooms.joinToString(", ") + (event.building?.let { " · $it" } ?: ""),
-            )
+            Detail("Where", if (event.rooms.isEmpty()) "Not published yet" else event.rooms.joinToString(", "))
             if (event.lecturers.isEmpty()) {
                 Detail("Lecturers", if (showLecturerHint) "Log in to see lecturers" else "None listed")
             } else {
@@ -331,11 +320,6 @@ private fun EventSheet(
                 ) { Text(if (places.size > 1) "Show ${RoomNames.canonical(place.name)} on map" else "Show on map") }
             }
             mapProblem?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-            links.forEach { (name, url) ->
-                OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }) {
-                    Text(if (links.size > 1 && name != null) "Open ${RoomNames.canonical(name)} in MazeMap" else "Open in MazeMap")
-                }
-            }
         }
         openedLecturer?.let { name ->
             LecturerCard(name, lecturers[name], vm, onOpenMap, onDismiss = { openedLecturer = null })
