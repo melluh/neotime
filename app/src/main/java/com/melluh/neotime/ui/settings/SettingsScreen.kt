@@ -2,6 +2,7 @@ package com.melluh.neotime.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -9,8 +10,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -75,18 +79,12 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onLogin: () -> U
                 }
             }
 
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val account = session.account
-                    if (account == null) {
-                        Text("Not logged in", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Log in with your UT account to see rooms and lecturers for the whole year. " +
-                                "You sign in on UT's own page; neotime never sees your password.",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Button(onClick = onLogin) { Text("Log in") }
-                    } else {
+            val account = session.account
+            if (account == null) {
+                NotLoggedInCard(onLogin)
+            } else {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Logged in as", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         Text(account.displayName ?: account.studentNumber ?: "UT account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(listOfNotNull(account.studentNumber, account.email).joinToString(" · "), style = MaterialTheme.typography.bodyMedium)
@@ -131,6 +129,34 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onLogin: () -> U
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun NotLoggedInCard(onLogin: () -> Unit) {
+    Card(
+        onClick = onLogin,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ),
+    ) {
+        Row(
+            Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Not logged in", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Log in with your UT account to see rooms and lecturers for the whole year. " +
+                        "You sign in on UT's own page; neotime never sees your password.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
         }
     }
 }
