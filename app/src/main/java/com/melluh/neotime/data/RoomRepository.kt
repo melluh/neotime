@@ -11,7 +11,6 @@ import com.melluh.neotime.timeedit.Availability
 import com.melluh.neotime.timeedit.BookingView
 import com.melluh.neotime.timeedit.NotLoggedInException
 import com.melluh.neotime.timeedit.Room
-import com.melluh.neotime.timeedit.TIMEEDIT_ZONE
 import com.melluh.neotime.timeedit.TimeEditClient
 import com.melluh.neotime.timeedit.TimeEditException
 import com.melluh.neotime.timeedit.TimeRange
@@ -30,7 +29,8 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-data class RoomStatus(val room: Room, val free: List<TimeRange>, val freeNow: Boolean)
+/** [free] is what can still be booked; [blocked] is what's reserved, including earlier today. */
+data class RoomStatus(val room: Room, val free: List<TimeRange>, val blocked: List<TimeRange>)
 
 sealed interface RoomsResult {
     data class Ok(val rooms: List<RoomStatus>) : RoomsResult
@@ -91,8 +91,8 @@ class RoomRepository(
         }
     }
 
-    /** Free time on [date] for the rooms in [building], plus all favorites wherever they are. */
-    suspend fun availability(building: String, date: LocalDate): RoomsResult {
+    /** Time on [date] for the rooms in [building], plus all favorites wherever they are. */
+    suspend fun availability(building: String, date: LocalDate, now: LocalDateTime): RoomsResult {
         // Goes through the session manager so any renewal shows in the banner
         if (!session.ensureSession()) {
             return when (session.state.value) {
@@ -106,12 +106,10 @@ class RoomRepository(
             // The booking view's sid has no Hall column, so occupancy comes from the room viewer
             val events = client.schedule(Area.STUDENT, sid, date, date, rooms.map { it.id })
             val busy = Availability.busyByRoom(events, rooms, date)
-            val now = LocalDateTime.now(TIMEEDIT_ZONE)
-            val slot = now.toLocalTime().let(Availability::nextSlot)
             RoomsResult.Ok(
                 rooms.map { room ->
-                    val free = Availability.freeRanges(busy[room.id].orEmpty(), date, now)
-                    RoomStatus(room, free, freeNow = date == now.toLocalDate() && free.firstOrNull()?.start == slot)
+                    val periods = busy[room.id].orEmpty()
+                    RoomStatus(room, Availability.freeRanges(periods, date, now), Availability.blocked(periods))
                 },
             )
         } catch (e: NotLoggedInException) {

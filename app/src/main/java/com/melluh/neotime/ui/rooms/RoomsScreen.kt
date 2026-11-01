@@ -1,44 +1,56 @@
 package com.melluh.neotime.ui.rooms
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -49,12 +61,14 @@ import com.melluh.neotime.AppContainer
 import com.melluh.neotime.auth.SessionState
 import com.melluh.neotime.data.RoomStatus
 import com.melluh.neotime.data.RoomsResult
+import com.melluh.neotime.timeedit.Availability
 import com.melluh.neotime.timeedit.BookingView
 import com.melluh.neotime.timeedit.Room
 import com.melluh.neotime.timeedit.TIMEEDIT_ZONE
 import com.melluh.neotime.timeedit.TimeRange
 import com.melluh.neotime.ui.AccountChip
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -64,18 +78,67 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
-/** [result] belongs to [building] on [date]; null until the first load for that pair is done. */
+enum class RoomWhen { NOW, LATER, OTHER_DAY }
+
+/** What the user is looking for. Only [date] needs a fetch; the rest narrows down what's loaded. */
+data class RoomFilter(
+    val mode: RoomWhen = RoomWhen.NOW,
+    val date: LocalDate,
+    /** The picked start; ignored for [RoomWhen.NOW]. */
+    val start: LocalTime = DEFAULT_START,
+    val minutes: Int = 60,
+    val people: Int = 1,
+    val type: String? = null,
+) {
+    /** The time to book as of [now]; null when today is over and today was asked for. */
+    fun window(now: LocalDateTime): TimeRange? {
+        val first = Availability.firstStart(now.toLocalTime())
+        val from = when (mode) {
+            RoomWhen.NOW -> first
+            RoomWhen.LATER -> first?.let { maxOf(it, start) }
+            RoomWhen.OTHER_DAY -> start
+        }
+        return from?.let { Availability.window(it, minutes.toLong()) }
+    }
+
+    fun accepts(room: Room): Boolean =
+        (room.capacity ?: people) >= people && (type == null || room.type == type)
+
+    /** Moves off days and modes that [now] has made impossible. */
+    fun settled(now: LocalDateTime): RoomFilter {
+        val today = now.toLocalDate()
+        return when {
+            Availability.firstStart(now.toLocalTime()) == null ->
+                if (date.isAfter(today)) this else copy(mode = RoomWhen.OTHER_DAY, date = today.plusDays(1))
+            date.isBefore(today) || (mode == RoomWhen.OTHER_DAY && date == today) ->
+                copy(mode = RoomWhen.NOW, date = today)
+            else -> this
+        }
+    }
+
+    companion object {
+        val DEFAULT_START: LocalTime = LocalTime.of(10, 0)
+    }
+}
+
+/** [result] belongs to [building] on [date], as of [now]; null until the first load for that pair is done. */
 data class RoomsUiState(
     val loading: Boolean = true,
     val building: String? = null,
     val date: LocalDate? = null,
+    val now: LocalDateTime,
     val result: RoomsResult? = null,
 )
 
@@ -90,11 +153,15 @@ class RoomsViewModel(private val container: AppContainer) : ViewModel() {
     private val _building = MutableStateFlow<String?>(null)
     val building: StateFlow<String?> = _building
 
-    private val _date = MutableStateFlow(today())
-    val date: StateFlow<LocalDate> = _date
+    private val _filter = MutableStateFlow(now().let { RoomFilter(date = it.toLocalDate()).settled(it) })
+    val filter: StateFlow<RoomFilter> = _filter
 
-    private val _state = MutableStateFlow(RoomsUiState())
+    private val _state = MutableStateFlow(RoomsUiState(now = now()))
     val state: StateFlow<RoomsUiState> = _state
+
+    /** A reload the user asked for; the ones the clock triggers stay out of sight. */
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing
 
     private val reload = MutableStateFlow(0)
     private var loadedAt: Instant? = null
@@ -110,51 +177,77 @@ class RoomsViewModel(private val container: AppContainer) : ViewModel() {
             val signedIn = container.session.state
                 .map { it !is SessionState.LoggedOut && it !is SessionState.NeedsInteractiveLogin }
                 .distinctUntilChanged()
-            combine(_building, _date, reload, signedIn) { building, date, _, _ -> building to date }
+            val dates = _filter.map { it.date }.distinctUntilChanged()
+            combine(_building, dates, reload, signedIn) { building, date, _, _ -> building to date }
                 .collectLatest { (building, date) ->
                     if (building == null) return@collectLatest
                     _state.value = _state.value.let {
                         if (it.building == building && it.date == date) it.copy(loading = true)
-                        else RoomsUiState(loading = true, building = building, date = date)
+                        else RoomsUiState(loading = true, building = building, date = date, now = it.now)
                     }
-                    val result = container.rooms.availability(building, date)
+                    // One clock for the free times and the window they're compared to
+                    val now = now()
+                    val result = container.rooms.availability(building, date, now)
                     loadedAt = Instant.now()
-                    _state.value = RoomsUiState(loading = false, building = building, date = date, result = result)
+                    _state.value = RoomsUiState(false, building, date, now, result)
+                    _refreshing.value = false
                 }
         }
     }
 
     fun selectBuilding(building: String) {
         _building.value = building
+        _filter.update { it.copy(type = null) }
         viewModelScope.launch { container.rooms.selectBuilding(building) }
     }
 
-    fun stepDay(days: Long) {
-        _date.value = _date.value.plusDays(days).coerceIn(today(), today().plusDays(_booking.value.days.toLong()))
+    fun selectNow() {
+        _filter.update { it.copy(mode = RoomWhen.NOW, date = now().toLocalDate()) }
     }
 
-    fun goToToday() {
-        _date.value = today()
+    fun selectLater() {
+        val now = now()
+        val first = Availability.firstStart(now.toLocalTime()) ?: return
+        val start = minOf(first.plusHours(1), Availability.LAST_START)
+        _filter.update { it.copy(mode = RoomWhen.LATER, date = now.toLocalDate(), start = start) }
     }
+
+    fun selectDay(date: LocalDate) {
+        _filter.update {
+            it.copy(
+                mode = RoomWhen.OTHER_DAY,
+                date = date,
+                start = if (it.mode == RoomWhen.NOW) RoomFilter.DEFAULT_START else it.start,
+            )
+        }
+    }
+
+    fun selectStart(start: LocalTime) = _filter.update { it.copy(start = start) }
+
+    fun selectMinutes(minutes: Int) = _filter.update { it.copy(minutes = minutes) }
+
+    fun selectPeople(people: Int) = _filter.update { it.copy(people = people) }
+
+    fun selectType(type: String?) = _filter.update { it.copy(type = type) }
 
     fun refresh() {
+        _refreshing.value = _building.value != null
         reload.value++
     }
 
-    /** Free times depend on the clock, so don't show old ones when returning to the app. */
+    /** Free times depend on the clock, so don't keep showing old ones. */
     fun refreshIfStale() {
-        if (_date.value.isBefore(today())) {
-            goToToday()
-        } else if (loadedAt?.let { Duration.between(it, Instant.now()) > MAX_AGE } == true) {
-            refresh()
-        }
+        val date = _filter.value.date
+        _filter.update { it.settled(now()) }
+        val stale = loadedAt?.let { Duration.between(it, Instant.now()) > MAX_AGE } == true
+        if (_filter.value.date == date && stale) reload.value++
     }
 
     fun toggleFavorite(room: Room) {
         viewModelScope.launch { container.rooms.toggleFavorite(room) }
     }
 
-    private fun today(): LocalDate = LocalDate.now(TIMEEDIT_ZONE)
+    private fun now(): LocalDateTime = LocalDateTime.now(TIMEEDIT_ZONE)
 
     private companion object {
         val MAX_AGE: Duration = Duration.ofMinutes(5)
@@ -165,20 +258,21 @@ class RoomsViewModel(private val container: AppContainer) : ViewModel() {
 @Composable
 fun RoomsScreen(container: AppContainer, onOpenSettings: () -> Unit, onLogin: () -> Unit) {
     val vm = viewModel { RoomsViewModel(container) }
-    val booking by vm.booking.collectAsStateWithLifecycle()
-    val selected by vm.building.collectAsStateWithLifecycle()
-    val date by vm.date.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
-    val favorites by vm.favorites.collectAsStateWithLifecycle()
+    val refreshing by vm.refreshing.collectAsStateWithLifecycle()
     val session by container.session.state.collectAsStateWithLifecycle()
 
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val today = LocalDate.now(TIMEEDIT_ZONE)
 
     LifecycleResumeEffect(vm) {
-        vm.refreshIfStale()
-        onPauseOrDispose { }
+        val clock = scope.launch {
+            while (true) {
+                vm.refreshIfStale()
+                delay(CLOCK_CHECK_MS)
+            }
+        }
+        onPauseOrDispose { clock.cancel() }
     }
 
     val onBook: (Room) -> Unit = {
@@ -191,73 +285,64 @@ fun RoomsScreen(container: AppContainer, onOpenSettings: () -> Unit, onLogin: ()
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Column {
-                        Text("Rooms")
-                        Text(
-                            dayLabel(date, today),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { vm.stepDay(-1) }, enabled = date.isAfter(today)) {
-                        Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "Previous day")
-                    }
-                    if (date != today) TextButton(onClick = vm::goToToday) { Text("Today") }
-                    IconButton(onClick = { vm.stepDay(1) }, enabled = date.isBefore(today.plusDays(booking.days.toLong()))) {
-                        Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "Next day")
-                    }
-                    AccountChip(session, onClick = onOpenSettings)
-                },
+                title = { Text("Rooms") },
+                actions = { AccountChip(session, onClick = onOpenSettings) },
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                items(booking.buildings, key = { it }) { building ->
-                    FilterChip(
-                        selected = building == selected,
-                        onClick = { vm.selectBuilding(building) },
-                        label = { Text(building) },
-                    )
-                }
-            }
-            if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (state.loading && state.result == null) LinearProgressIndicator(Modifier.fillMaxWidth())
             PullToRefreshBox(
-                isRefreshing = state.loading && state.result != null,
+                isRefreshing = refreshing,
                 onRefresh = vm::refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                RoomList(state, favorites, vm::toggleFavorite, onBook, vm::refresh, onLogin)
+                RoomFinder(vm, onBook, onLogin)
             }
         }
     }
 }
 
+/** The questions in the order you'd ask them, with the rooms that fit below. */
 @Composable
-private fun RoomList(
-    state: RoomsUiState,
-    favorites: List<Room>,
-    onToggleFavorite: (Room) -> Unit,
-    onBook: (Room) -> Unit,
-    onRetry: () -> Unit,
-    onLogin: () -> Unit,
-) {
+private fun RoomFinder(vm: RoomsViewModel, onBook: (Room) -> Unit, onLogin: () -> Unit) {
+    val booking by vm.booking.collectAsStateWithLifecycle()
+    val selected by vm.building.collectAsStateWithLifecycle()
+    val filter by vm.filter.collectAsStateWithLifecycle()
+    val state by vm.state.collectAsStateWithLifecycle()
+    val favorites by vm.favorites.collectAsStateWithLifecycle()
+    var showTaken by rememberSaveable { mutableStateOf(false) }
+
+    val window = filter.window(state.now)
+    val fits = { status: RoomStatus? -> status != null && window != null && Availability.isFree(status.free, window) }
+
     val statuses = (state.result as? RoomsResult.Ok)?.rooms.orEmpty()
+    val here = statuses.filter { it.room.building == state.building }
+    val types = here.mapNotNull { it.room.type }.distinct().sorted()
     val favoriteIds = favorites.map { it.id }.toSet()
-    val inBuilding = statuses.filter { it.room.building == state.building && it.room.id !in favoriteIds }
-    val free = inBuilding.filter { it.free.isNotEmpty() }
-        .sortedWith(compareByDescending<RoomStatus> { it.freeNow }.thenBy { it.room.name })
-    val hidden = inBuilding.size - free.size
+    val matching = here.filter { it.room.id !in favoriteIds && filter.accepts(it.room) }
+    val (free, taken) = matching.partition(fits)
+    val onToday = state.date == state.now.toLocalDate()
+    val past = state.now.toLocalTime().takeIf { onToday }
 
     LazyColumn(Modifier.fillMaxSize()) {
+        item {
+            Question("Where") {
+                ChoiceChips(booking.buildings, selected, { it.orEmpty() }, onSelect = { it?.let(vm::selectBuilding) })
+            }
+        }
+        item {
+            Question("When") { WhenChips(filter, state.now, booking, vm) }
+        }
+        item {
+            Question("Who") {
+                ChoiceChips(PEOPLE, filter.people, ::peopleLabel, onSelect = vm::selectPeople)
+                if (types.size > 1) {
+                    ChoiceChips(listOf(null) + types, filter.type, { it ?: "Any type" }, onSelect = vm::selectType)
+                }
+            }
+        }
         if (state.result is RoomsResult.NeedsLogin) {
             item {
                 Notice("Log in to see project rooms. TimeEdit only shows them to UT accounts.") {
@@ -267,58 +352,213 @@ private fun RoomList(
         }
         if (state.result is RoomsResult.Failed) {
             item {
-                Notice(state.result.message) {
-                    OutlinedButton(onClick = onRetry) { Text("Retry") }
+                Notice((state.result as RoomsResult.Failed).message) {
+                    OutlinedButton(onClick = vm::refresh) { Text("Retry") }
+                }
+            }
+        }
+        if (state.result is RoomsResult.Ok) {
+            stickyHeader {
+                Column(
+                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp, 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        listOfNotNull(state.date?.let { dayLabel(it, state.now.toLocalDate()) }, window?.let(::rangeLabel))
+                            .joinToString(" · "),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    BarLegend(showPast = onToday)
+                    TimeAxis()
                 }
             }
         }
         if (favorites.isNotEmpty()) {
             item { SectionHeader("Favorites") }
             items(favorites, key = { "fav-${it.id}" }) { room ->
-                RoomRow(
-                    room = room,
-                    status = statuses.firstOrNull { it.room.id == room.id },
-                    known = state.result is RoomsResult.Ok,
-                    favorite = true,
-                    showBuilding = true,
-                    onToggleFavorite = onToggleFavorite,
-                    onBook = onBook,
-                )
+                val status = statuses.firstOrNull { it.room.id == room.id }
+                RoomRow(room, status, window, past, favorite = true, showBuilding = true, fits(status), vm::toggleFavorite, onBook)
             }
         }
         if (state.result is RoomsResult.Ok) {
             state.building?.let { item { SectionHeader(it) } }
             items(free, key = { it.room.id }) { status ->
-                RoomRow(
-                    room = status.room,
-                    status = status,
-                    known = true,
-                    favorite = false,
-                    showBuilding = false,
-                    onToggleFavorite = onToggleFavorite,
-                    onBook = onBook,
-                )
+                RoomRow(status.room, status, window, past, favorite = false, showBuilding = false, true, vm::toggleFavorite, onBook)
             }
-            if (free.isEmpty() && hidden > 0) {
+            if (matching.isEmpty() && here.size > favorites.count { it.building == state.building }) {
+                item { Hint("No rooms here that fit this group. Try fewer people or another building.") }
+            } else if (free.isEmpty() && taken.isNotEmpty()) {
+                item { Hint("Nothing free for that time. Try another time or building.") }
+            }
+            if (taken.isNotEmpty()) {
                 item {
-                    Text(
-                        "No free rooms left here on this day. Try another day or building.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(16.dp),
-                    )
+                    TextButton(onClick = { showTaken = !showTaken }, modifier = Modifier.padding(horizontal = 4.dp)) {
+                        Text(if (taken.size == 1) "1 room taken at that time" else "${taken.size} rooms taken at that time")
+                        Icon(if (showTaken) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, contentDescription = null)
+                    }
                 }
             }
-            if (hidden > 0) {
-                item {
-                    Text(
-                        if (hidden == 1) "1 fully booked room hidden" else "$hidden fully booked rooms hidden",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(16.dp),
-                    )
+            if (showTaken) {
+                items(taken, key = { it.room.id }) { status ->
+                    RoomRow(status.room, status, window, past, favorite = false, showBuilding = false, false, vm::toggleFavorite, onBook)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun Question(title: String, content: @Composable () -> Unit) {
+    Column(Modifier.padding(top = 8.dp)) {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        content()
+    }
+}
+
+@Composable
+private fun <T> ChoiceChips(
+    options: List<T>,
+    selected: T,
+    label: (T) -> String,
+    enabled: (T) -> Boolean = { true },
+    onSelect: (T) -> Unit,
+) {
+    val list = rememberLazyListState()
+    // A selection further along the row, like a remembered building, shouldn't start out of view
+    LaunchedEffect(selected) {
+        val index = options.indexOf(selected)
+        if (index >= 0 && list.layoutInfo.visibleItemsInfo.none { it.index == index && it.offset + it.size <= list.layoutInfo.viewportEndOffset }) {
+            list.animateScrollToItem(index)
+        }
+    }
+    LazyRow(
+        state = list,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        items(options) { option ->
+            FilterChip(
+                selected = option == selected,
+                onClick = { onSelect(option) },
+                label = { Text(label(option)) },
+                enabled = enabled(option),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WhenChips(filter: RoomFilter, now: LocalDateTime, booking: BookingView, vm: RoomsViewModel) {
+    var pickingDay by rememberSaveable { mutableStateOf(false) }
+    val today = now.toLocalDate()
+    val first = Availability.firstStart(now.toLocalTime())
+
+    ChoiceChips(
+        RoomWhen.entries,
+        filter.mode,
+        label = {
+            when (it) {
+                RoomWhen.NOW -> "Now"
+                RoomWhen.LATER -> "Later today"
+                RoomWhen.OTHER_DAY -> if (filter.mode == it) filter.date.format(DAY) else "Another day"
+            }
+        },
+        enabled = {
+            when (it) {
+                RoomWhen.NOW -> first != null
+                RoomWhen.LATER -> first != null && first.isBefore(Availability.LAST_START)
+                RoomWhen.OTHER_DAY -> booking.days > 0
+            }
+        },
+        onSelect = {
+            when (it) {
+                RoomWhen.NOW -> vm.selectNow()
+                RoomWhen.LATER -> vm.selectLater()
+                RoomWhen.OTHER_DAY -> pickingDay = true
+            }
+        },
+    )
+    if (filter.mode != RoomWhen.NOW) {
+        val earliest = if (filter.mode == RoomWhen.LATER) first else Availability.OPEN
+        filter.window(now)?.let { window ->
+            if (earliest != null) StartSlider(window.start, earliest, vm::selectStart)
+        }
+    }
+    ChoiceChips(DURATIONS, filter.minutes, ::durationLabel, onSelect = vm::selectMinutes)
+
+    if (pickingDay) {
+        DayDialog(
+            selected = filter.date.takeIf { it.isAfter(today) },
+            first = today.plusDays(1),
+            last = today.plusDays(booking.days.toLong()),
+            onPick = {
+                pickingDay = false
+                vm.selectDay(it)
+            },
+            onDismiss = { pickingDay = false },
+        )
+    }
+}
+
+@Composable
+private fun StartSlider(start: LocalTime, earliest: LocalTime, onChange: (LocalTime) -> Unit) {
+    val from = earliest.toSecondOfDay() / 60f
+    val to = Availability.LAST_START.toSecondOfDay() / 60f
+    Column(Modifier.padding(horizontal = 16.dp)) {
+        Text("From $start", style = MaterialTheme.typography.bodyMedium)
+        Slider(
+            value = start.toSecondOfDay() / 60f,
+            // Snapped here instead of with steps, which would draw 58 tick marks
+            onValueChange = {
+                val slots = ((it - from) / Availability.STEP_MINUTES).roundToInt()
+                onChange(earliest.plusMinutes(slots * Availability.STEP_MINUTES))
+            },
+            valueRange = from..to,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DayDialog(
+    selected: LocalDate?,
+    first: LocalDate,
+    last: LocalDate,
+    onPick: (LocalDate) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // The picker works in UTC milliseconds, whatever the device's zone is
+    fun toMillis(date: LocalDate) = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+    fun toDate(millis: Long) = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+
+    val picker = rememberDatePickerState(
+        initialSelectedDateMillis = selected?.let(::toMillis),
+        initialDisplayedMonthMillis = toMillis(selected ?: first),
+        selectableDates = remember(first, last) {
+            object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long) = toDate(utcTimeMillis) in first..last
+                override fun isSelectableYear(year: Int) = year in first.year..last.year
+            }
+        },
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = { picker.selectedDateMillis?.let { onPick(toDate(it)) } },
+                enabled = picker.selectedDateMillis != null,
+            ) { Text("OK") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    ) {
+        DatePicker(picker, showModeToggle = false)
     }
 }
 
@@ -344,12 +584,19 @@ private fun Notice(message: String, action: @Composable () -> Unit) {
 }
 
 @Composable
+private fun Hint(message: String) {
+    Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(16.dp))
+}
+
+@Composable
 private fun RoomRow(
     room: Room,
     status: RoomStatus?,
-    known: Boolean,
+    window: TimeRange?,
+    past: LocalTime?,
     favorite: Boolean,
     showBuilding: Boolean,
+    bookable: Boolean,
     onToggleFavorite: (Room) -> Unit,
     onBook: (Room) -> Unit,
 ) {
@@ -357,40 +604,51 @@ private fun RoomRow(
         room.building.takeIf { showBuilding },
         room.capacity?.let { if (it == 1) "1 person" else "$it people" },
     ).joinToString(" · ")
-    val free = status?.free.orEmpty()
-    ListItem(
-        headlineContent = { Text(room.name) },
-        supportingContent = {
-            Column {
-                if (details.isNotEmpty()) Text(details)
-                Text(
-                    when {
-                        !known || status == null -> "Availability unknown"
-                        free.isEmpty() -> "Fully booked"
-                        else -> (if (status.freeNow) "Free now: " else "Free ") + free.joinToString(", ", transform = ::rangeLabel)
-                    },
-                    color = if (status?.freeNow == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (free.isNotEmpty()) OutlinedButton(onClick = { onBook(room) }) { Text("Book") }
-                IconButton(onClick = { onToggleFavorite(room) }) {
-                    Icon(
-                        if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        contentDescription = if (favorite) "Remove from favorites" else "Add to favorites",
-                        tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(room.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (details.isNotEmpty()) {
+                    Text(details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        },
-    )
+            if (bookable) {
+                OutlinedButton(
+                    onClick = { onBook(room) },
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier = Modifier.height(36.dp),
+                ) { Text("Book") }
+            }
+            IconButton(onClick = { onToggleFavorite(room) }) {
+                Icon(
+                    if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    contentDescription = if (favorite) "Remove from favorites" else "Add to favorites",
+                    tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (status != null) {
+            AvailabilityBar(status, window, past)
+        } else {
+            Text(
+                "Availability unknown",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
+
+private const val CLOCK_CHECK_MS = 60_000L
+
+private val DURATIONS = listOf(30, 60, 120, 180, 240)
+private val PEOPLE = listOf(1, 2, 4, 6, 8)
 
 private val DAY = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())
 
 private fun dayLabel(date: LocalDate, today: LocalDate): String =
     (if (date == today) "Today · " else "") + date.format(DAY)
 
-private fun rangeLabel(range: TimeRange): String = "${range.start}–${range.end}"
+private fun durationLabel(minutes: Int): String = if (minutes < 60) "$minutes min" else "${minutes / 60} h"
+
+private fun peopleLabel(people: Int): String = if (people == 1) "Any size" else "$people+ people"

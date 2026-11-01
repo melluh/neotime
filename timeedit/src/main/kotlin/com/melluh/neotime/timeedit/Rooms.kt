@@ -39,7 +39,8 @@ object Availability {
     /** Bookable hours and slot size, as on the booking page. */
     val OPEN: LocalTime = LocalTime.of(8, 0)
     val CLOSE: LocalTime = LocalTime.of(23, 0)
-    private const val STEP_MINUTES = 15L
+    val LAST_START: LocalTime = LocalTime.of(22, 30)
+    const val STEP_MINUTES = 15L
 
     private val PARENTHESES = Regex("""\s*\(.*$""")
     private val SPACING = Regex("""[\s_]+""")
@@ -50,6 +51,36 @@ object Availability {
         if (time.isBefore(OPEN)) return OPEN
         val minutes = time.toSecondOfDay().toLong().let { (it + 59) / 60 }
         return LocalTime.ofSecondOfDay(((minutes + STEP_MINUTES - 1) / STEP_MINUTES) * STEP_MINUTES * 60)
+    }
+
+    /** The earliest start a booking made at [time] can have today; null once none are left. */
+    fun firstStart(time: LocalTime): LocalTime? = nextSlot(time)?.takeUnless { it.isAfter(LAST_START) }
+
+    /** [minutes] from [start], cut off at closing time. */
+    fun window(start: LocalTime, minutes: Long): TimeRange {
+        val untilClose = (CLOSE.toSecondOfDay() - start.toSecondOfDay()) / 60L
+        return TimeRange(start, if (minutes < untilClose) start.plusMinutes(minutes) else CLOSE)
+    }
+
+    /** Whether all of [window] falls inside one of the [free] ranges. */
+    fun isFree(free: List<TimeRange>, window: TimeRange): Boolean =
+        free.any { !it.start.isAfter(window.start) && !it.end.isBefore(window.end) }
+
+    /** [busy] merged and limited to bookable hours, for drawing a room's day. */
+    fun blocked(busy: List<TimeRange>): List<TimeRange> {
+        val merged = mutableListOf<TimeRange>()
+        for (period in busy.sortedBy { it.start }) {
+            val start = maxOf(period.start, OPEN)
+            val end = minOf(period.end, CLOSE)
+            if (!start.isBefore(end)) continue
+            val last = merged.lastOrNull()
+            if (last != null && !start.isAfter(last.end)) {
+                merged[merged.lastIndex] = TimeRange(last.start, maxOf(last.end, end))
+            } else {
+                merged += TimeRange(start, end)
+            }
+        }
+        return merged
     }
 
     /** Bookable time left on [date] around [busy], ignoring anything before [now]. */

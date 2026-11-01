@@ -89,6 +89,41 @@ class RoomsTest {
     }
 
     @Test
+    fun `no bookings can start after the last slot`() {
+        assertEquals(t("22:30"), Availability.firstStart(t("22:20")))
+        assertNull(Availability.firstStart(t("22:31")))
+    }
+
+    @Test
+    fun `a window stops at closing time`() {
+        assertEquals(range("14:00", "15:30"), Availability.window(t("14:00"), 90))
+        assertEquals(range("22:00", "23:00"), Availability.window(t("22:00"), 60))
+        assertEquals(range("22:30", "23:00"), Availability.window(t("22:30"), 240))
+    }
+
+    @Test
+    fun `a room is free only for windows inside one free range`() {
+        val free = listOf(range("09:00", "10:00"), range("11:00", "13:00"))
+        assertEquals(true, Availability.isFree(free, range("09:00", "10:00")))
+        assertEquals(true, Availability.isFree(free, range("11:30", "12:00")))
+        assertEquals(false, Availability.isFree(free, range("09:30", "11:30")))
+        assertEquals(false, Availability.isFree(free, range("12:30", "13:30")))
+        assertEquals(false, Availability.isFree(emptyList(), range("09:00", "10:00")))
+    }
+
+    @Test
+    fun `blocked time is merged and limited to bookable hours`() {
+        val busy = listOf(
+            range("13:00", "14:00"), TimeRange(LocalTime.MIN, t("09:00")), range("10:00", "11:00"),
+            range("10:30", "12:00"), range("12:00", "12:30"), TimeRange(t("22:00"), LocalTime.MAX), range("06:00", "07:00"),
+        )
+        assertEquals(
+            listOf(range("08:00", "09:00"), range("10:00", "12:30"), range("13:00", "14:00"), range("22:00", "23:00")),
+            Availability.blocked(busy),
+        )
+    }
+
+    @Test
     fun `a booking lasting until midnight is handled`() {
         val event = Event("1", tuesday.atTime(18, 0), tuesday.atTime(LocalTime.MAX), "", rooms = listOf("RA 2209 (8p)"))
         val room = Room("1.4", "RA 2209")
@@ -126,8 +161,8 @@ class RoomsTest {
             for (time in listOf("1045", "1300", "1800")) {
                 val start = t("${time.take(2)}:${time.drop(2)}")
                 val free = rooms.filter { room ->
-                    Availability.freeRanges(busy[room.id].orEmpty(), date, date.minusDays(1).atStartOfDay())
-                        .any { !it.start.isAfter(start) && !it.end.isBefore(start.plusMinutes(30)) }
+                    val free = Availability.freeRanges(busy[room.id].orEmpty(), date, date.minusDays(1).atStartOfDay())
+                    Availability.isFree(free, Availability.window(start, 30))
                 }.map { it.id }.sorted()
                 val expected = Json.decodeFromString(
                     ListSerializer(String.serializer()),
