@@ -1,6 +1,7 @@
 package com.melluh.neotime.ui
 
 import android.content.res.Configuration
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -67,6 +68,7 @@ import com.melluh.neotime.auth.SessionState
 import com.melluh.neotime.timeedit.Account
 import com.melluh.neotime.ui.login.LoginScreen
 import com.melluh.neotime.ui.map.MapScreen
+import com.melluh.neotime.ui.picker.CourseDetailScreen
 import com.melluh.neotime.ui.picker.CoursesScreen
 import com.melluh.neotime.ui.picker.PickerScreen
 import com.melluh.neotime.ui.rooms.RoomsScreen
@@ -124,9 +126,17 @@ fun NeotimeRoot(container: AppContainer) {
                 )
             }
             composable("picker") {
-                CoursesScreen(container, onBack = { nav.popBackStack() }, onAdd = { nav.navigate("picker/add") })
+                CoursesScreen(
+                    container,
+                    onBack = { nav.popBackStack() },
+                    onAdd = { nav.navigate("picker/add") },
+                    onOpenCourse = { nav.navigate("picker/course/${Uri.encode(it.id)}") },
+                )
             }
             composable("picker/add") { PickerScreen(container, onBack = { nav.popBackStack() }) }
+            composable("picker/course/{id}") { entry ->
+                CourseDetailScreen(container, entry.arguments?.getString("id").orEmpty(), onBack = { nav.popBackStack() })
+            }
             composable("settings") {
                 SettingsScreen(
                     container = container,

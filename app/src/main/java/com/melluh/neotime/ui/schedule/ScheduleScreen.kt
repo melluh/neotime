@@ -58,6 +58,7 @@ import com.melluh.neotime.timeedit.RoomPlace
 import com.melluh.neotime.timeedit.TIMEEDIT_ZONE
 import com.melluh.neotime.timeedit.TimeEditException
 import com.melluh.neotime.timeedit.isPlaceholderLecturer
+import com.melluh.neotime.timeedit.visible
 import com.melluh.neotime.ui.AccountChip
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -82,8 +83,12 @@ class ScheduleViewModel(private val container: AppContainer) : ViewModel() {
 
     val lecturers: StateFlow<Map<String, LecturerEntry>> = container.lecturers.entries
 
-    private val _refreshing = MutableStateFlow(false)
-    val refreshing: StateFlow<Boolean> = _refreshing
+    /** The schedule's events minus the course parts the user hid. */
+    val visibleEvents: StateFlow<List<Event>> = combine(snapshot, container.schedule.hiddenParts) { snap, hidden ->
+        snap.events.visible(hidden)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val refreshing: StateFlow<Boolean> = container.schedule.refreshing
 
     private val _messages = MutableStateFlow<String?>(null)
     val messages: StateFlow<String?> = _messages
@@ -110,12 +115,11 @@ class ScheduleViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /** Skipping is safe: a running refresh picks up selection changes before it finishes. */
     fun refresh() {
-        if (_refreshing.value) return
+        if (refreshing.value) return
         viewModelScope.launch {
-            _refreshing.value = true
             val result = container.schedule.refresh()
-            _refreshing.value = false
             if (result is RefreshResult.Failed) _messages.value = result.message
         }
     }
@@ -153,6 +157,7 @@ private const val CURRENT_WEEK_PAGE = WEEK_PAGES / 2
 fun ScheduleScreen(container: AppContainer, onOpenPicker: () -> Unit, onOpenSettings: () -> Unit, onOpenMap: () -> Unit) {
     val vm = viewModel { ScheduleViewModel(container) }
     val snapshot by vm.snapshot.collectAsStateWithLifecycle()
+    val visibleEvents by vm.visibleEvents.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val refreshing by vm.refreshing.collectAsStateWithLifecycle()
     val message by vm.messages.collectAsStateWithLifecycle()
@@ -212,8 +217,8 @@ fun ScheduleScreen(container: AppContainer, onOpenPicker: () -> Unit, onOpenSett
                 HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
                     val monday = thisMonday.plusWeeks((page - CURRENT_WEEK_PAGE).toLong())
                     val sunday = monday.plusDays(6)
-                    val weekEvents = remember(snapshot, monday) {
-                        snapshot.events.filter { !it.date.isBefore(monday) && !it.date.isAfter(sunday) }
+                    val weekEvents = remember(visibleEvents, monday) {
+                        visibleEvents.filter { !it.date.isBefore(monday) && !it.date.isAfter(sunday) }
                     }
                     WeekGrid(monday = monday, events = weekEvents, onEventClick = { selected = it })
                 }
@@ -307,7 +312,7 @@ private fun EventSheet(
                     }
                 }
             }
-            event.coursePart?.let { Detail("Part", it) }
+            event.coursePartName?.let { Detail("Part", it) }
             event.extraInfo?.let { Detail("Info", it) }
             places.forEach { place ->
                 Button(

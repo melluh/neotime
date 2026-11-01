@@ -1,12 +1,14 @@
 package com.melluh.neotime.data
 
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.melluh.neotime.auth.SessionManager
 import com.melluh.neotime.timeedit.Area
+import com.melluh.neotime.timeedit.CoursePart
 import com.melluh.neotime.timeedit.DataSource
 import com.melluh.neotime.timeedit.Event
 import com.melluh.neotime.timeedit.NotLoggedInException
@@ -24,9 +26,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.IOException
@@ -62,6 +67,10 @@ class ScheduleRepository(
     private val _snapshot = MutableStateFlow(readCache())
     val snapshot: StateFlow<ScheduleSnapshot> = _snapshot.asStateFlow()
 
+    private val refreshLock = Mutex()
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
+
     val selection: Flow<List<ObjectRef>> = dataStore.data.map { prefs ->
         prefs[SELECTION]?.let { runCatching { json.decodeFromString(ListSerializer(ObjectRef.serializer()), it) }.getOrNull() }
             .orEmpty()
@@ -70,19 +79,63 @@ class ScheduleRepository(
     suspend fun add(ref: ObjectRef) = addAll(listOf(ref))
 
     /** One write, so the schedule refreshes once rather than per item. */
-    suspend fun addAll(refs: List<ObjectRef>) = editSelection { (it + refs).distinctBy { r -> r.id } }
+    suspend fun addAll(refs: List<ObjectRef>) = editSelection { _, current -> (current + refs).distinctBy { r -> r.id } }
 
-    suspend fun remove(ref: ObjectRef) = editSelection { it.filterNot { r -> r.id == ref.id } }
+    /** Takes the course's hidden parts along, unless another block of the same course stays. */
+    suspend fun remove(ref: ObjectRef) = editSelection { prefs, current ->
+        val remaining = current.filterNot { r -> r.id == ref.id }
+        val code = ref.courseCode
+        if (code != null && remaining.none { it.courseCode == code }) {
+            writeHiddenParts(prefs, hiddenPartsIn(prefs).filterNotTo(HashSet()) { it.code == code })
+        }
+        remaining
+    }
 
-    private suspend fun editSelection(change: (List<ObjectRef>) -> List<ObjectRef>) {
+    private suspend fun editSelection(change: (MutablePreferences, List<ObjectRef>) -> List<ObjectRef>) {
         dataStore.edit { prefs ->
             val current = prefs[SELECTION]?.let { json.decodeFromString(ListSerializer(ObjectRef.serializer()), it) }.orEmpty()
-            prefs[SELECTION] = json.encodeToString(ListSerializer(ObjectRef.serializer()), change(current))
+            prefs[SELECTION] = json.encodeToString(ListSerializer(ObjectRef.serializer()), change(prefs, current))
+        }
+    }
+
+    /** Course parts the user took off the schedule. The events stay cached; only the display skips them. */
+    val hiddenParts: Flow<Set<CoursePart>> = dataStore.data.map(::hiddenPartsIn)
+
+    suspend fun setPartHidden(part: CoursePart, hidden: Boolean) {
+        dataStore.edit { prefs ->
+            val current = hiddenPartsIn(prefs)
+            writeHiddenParts(prefs, if (hidden) current + part else current - part)
+        }
+    }
+
+    private fun hiddenPartsIn(prefs: Preferences): Set<CoursePart> =
+        prefs[HIDDEN_PARTS]?.let { runCatching { json.decodeFromString(HIDDEN_PARTS_SERIALIZER, it) }.getOrNull() }.orEmpty()
+
+    private fun writeHiddenParts(prefs: MutablePreferences, parts: Set<CoursePart>) {
+        prefs[HIDDEN_PARTS] = json.encodeToString(HIDDEN_PARTS_SERIALIZER, parts)
+    }
+
+    /**
+     * Brings the cache up to date with the selection. Only one fetch runs at a time, so a slow one
+     * can't overwrite a newer result, and a selection edited meanwhile is fetched before this returns.
+     */
+    suspend fun refresh(): RefreshResult = refreshLock.withLock { fetchCurrentSelection() }
+
+    private suspend fun fetchCurrentSelection(): RefreshResult {
+        _refreshing.value = true
+        try {
+            while (true) {
+                val result = fetch()
+                if (result !is RefreshResult.Ok) return result
+                if (selection.first().map { it.id }.toSet() == _snapshot.value.objects.toSet()) return result
+            }
+        } finally {
+            _refreshing.value = false
         }
     }
 
     /** Fetches the full logged-in schedule when possible, otherwise the merged public views. */
-    suspend fun refresh(): RefreshResult {
+    private suspend fun fetch(): RefreshResult {
         val objects = selection.first().map { it.id }
         if (objects.isEmpty()) {
             save(ScheduleSnapshot(source = _snapshot.value.source, fetchedAtEpochMs = System.currentTimeMillis()))
@@ -180,6 +233,8 @@ class ScheduleRepository(
 
     private companion object {
         val SELECTION = stringPreferencesKey("selection")
+        val HIDDEN_PARTS = stringPreferencesKey("hidden_parts")
+        val HIDDEN_PARTS_SERIALIZER = SetSerializer(CoursePart.serializer())
         val VIEWS_PUBLIC = stringPreferencesKey("views_public")
         val VIEWS_PUBLIC_AT = longPreferencesKey("views_public_at")
         val VIEWS_STUDENT = stringPreferencesKey("views_student")

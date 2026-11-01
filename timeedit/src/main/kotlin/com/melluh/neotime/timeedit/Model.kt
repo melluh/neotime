@@ -34,7 +34,12 @@ enum class ObjectType(val id: Int, val label: String) {
 data class ObjectRef(val id: String, val name: String) {
     val typeId: Int get() = id.substringAfterLast('.').toIntOrNull() ?: -1
     val type: ObjectType? get() = ObjectType.of(typeId)
+
+    /** The Osiris code in a course's name, e.g. 202500223 in "Get Data, 202500223, 2026, 1A". */
+    val courseCode: String? get() = OSIRIS_CODE.find(name)?.value
 }
+
+private val OSIRIS_CODE = Regex("""\b\d{6,}\b""")
 
 /** Where a schedule snapshot came from. */
 @Serializable
@@ -67,6 +72,17 @@ data class Event(
     val courseName: String
         get() = course.split(COURSE_SEPARATOR).joinToString(", ") { it.replace(COURSE_CODE, "") }
 
+    /** Osiris codes of the courses this event belongs to. Holidays have none. */
+    val courseCodes: List<String>
+        get() = course.split(COURSE_SEPARATOR).mapNotNull { COURSE_CODE.find(it)?.groupValues?.get(1) }
+
+    /**
+     * [coursePart] as a person would write it. TimeEdit ends it with a code, which isn't always
+     * the course's own, and some names carry a zero-width space that [ScheduleParser] doesn't strip.
+     */
+    val coursePartName: String?
+        get() = coursePart?.replace(ZERO_WIDTH, "")?.replace(PART_CODE, "")?.trim()?.ifEmpty { null }
+
     val date: LocalDate get() = start.toLocalDate()
 
     /** [rooms] with their MazeMap identifiers, which are only known if every room has a link. */
@@ -79,7 +95,9 @@ data class Event(
     private companion object {
         val SHARE_POI = Regex("""sharepoi=([^,&\s]+)""")
         val COURSE_SEPARATOR = Regex(""",\s(?=\S.*\.\s\d{6,})""")
-        val COURSE_CODE = Regex("""\.\s\d{6,}$""")
+        val COURSE_CODE = Regex("""\.\s(\d{6,})$""")
+        val PART_CODE = Regex("""[\s-]*\d{6,}$""")
+        val ZERO_WIDTH = Regex("[​-‍﻿]")
     }
 }
 

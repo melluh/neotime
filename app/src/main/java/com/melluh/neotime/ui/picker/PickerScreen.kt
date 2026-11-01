@@ -176,7 +176,7 @@ fun PickerScreen(container: AppContainer, onBack: () -> Unit) {
                         }
                     }
                 },
-                placeholder = { Text("Search, e.g. \"TCS MOD02\" or \"Calculus\"") },
+                placeholder = { Text("Search here") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
             )
