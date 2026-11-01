@@ -105,7 +105,8 @@ data class RoomFilter(
     /** The picked start; ignored for [RoomWhen.NOW]. */
     val start: LocalTime = DEFAULT_START,
     val minutes: Int = 60,
-    val people: Int = 1,
+    /** A room size in the building; null for any. */
+    val size: Int? = null,
     val type: String? = null,
 ) {
     /** The time to book as of [now]; null when today is over and today was asked for. */
@@ -120,7 +121,7 @@ data class RoomFilter(
     }
 
     fun accepts(room: Room): Boolean =
-        (room.capacity ?: people) >= people && (type == null || room.type == type)
+        (size == null || room.capacity == null || room.capacity == size) && (type == null || room.type == type)
 
     /** Moves off days and modes that [now] has made impossible. */
     fun settled(now: LocalDateTime): RoomFilter {
@@ -210,7 +211,7 @@ class RoomsViewModel(private val container: AppContainer) : ViewModel() {
                 booked.join()
                 room.building?.let(::selectBuilding)
                 // A room that doesn't fit the filter wouldn't be listed
-                _filter.update { it.copy(people = 1, type = null) }
+                _filter.update { it.copy(size = null, type = null) }
                 _focused.value = room
                 container.focus.clearRooms()
             }
@@ -223,7 +224,7 @@ class RoomsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun selectBuilding(building: String) {
         _building.value = building
-        _filter.update { it.copy(type = null) }
+        _filter.update { it.copy(size = null, type = null) }
         viewModelScope.launch { container.rooms.selectBuilding(building) }
     }
 
@@ -252,7 +253,7 @@ class RoomsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun selectMinutes(minutes: Int) = _filter.update { it.copy(minutes = minutes) }
 
-    fun selectPeople(people: Int) = _filter.update { it.copy(people = people) }
+    fun selectSize(size: Int?) = _filter.update { it.copy(size = size) }
 
     fun selectType(type: String?) = _filter.update { it.copy(type = type) }
 
@@ -357,6 +358,7 @@ private fun RoomFinder(vm: RoomsViewModel, onBook: (Room) -> Unit, onShowOnMap: 
 
     val statuses = (state.result as? RoomsResult.Ok)?.rooms.orEmpty()
     val here = statuses.filter { it.room.building == state.building }
+    val sizes = here.mapNotNull { it.room.capacity }.distinct().sorted()
     val types = here.mapNotNull { it.room.type }.distinct().sorted()
     val favoriteIds = favorites.map { it.id }.toSet()
     val matching = here.filter { it.room.id !in favoriteIds && filter.accepts(it.room) }
@@ -397,11 +399,16 @@ private fun RoomFinder(vm: RoomsViewModel, onBook: (Room) -> Unit, onShowOnMap: 
         item {
             Question("When") { WhenChips(filter, state.now, booking, vm) }
         }
+        // Stays an item when there's nothing to ask, as QUESTIONS counts it
         item {
-            Question("Who") {
-                ChoiceChips(PEOPLE, filter.people, ::peopleLabel, onSelect = vm::selectPeople)
-                if (types.size > 1) {
-                    ChoiceChips(listOf(null) + types, filter.type, { it ?: "Any type" }, onSelect = vm::selectType)
+            if (sizes.size > 1 || types.size > 1) {
+                Question("Who") {
+                    if (sizes.size > 1) {
+                        ChoiceChips(listOf(null) + sizes, filter.size, { it?.let(::peopleLabel) ?: "Any size" }, onSelect = vm::selectSize)
+                    }
+                    if (types.size > 1) {
+                        ChoiceChips(listOf(null) + types, filter.type, { it ?: "Any type" }, onSelect = vm::selectType)
+                    }
                 }
             }
         }
@@ -448,7 +455,7 @@ private fun RoomFinder(vm: RoomsViewModel, onBook: (Room) -> Unit, onShowOnMap: 
                 RoomRow(status.room, status, window, past, favorite = false, showBuilding = false, true, status.room.id == focused?.id, vm::toggleFavorite, onBook, onShowOnMap)
             }
             if (matching.isEmpty() && here.size > favorites.count { it.building == state.building }) {
-                item { Hint("No rooms here that fit this group. Try fewer people or another building.") }
+                item { Hint("No rooms here that fit. Try another size or building.") }
             } else if (free.isEmpty() && taken.isNotEmpty()) {
                 item { Hint("Nothing free for that time. Try another time or building.") }
             }
@@ -666,7 +673,7 @@ private fun RoomRow(
 ) {
     val details = listOfNotNull(
         room.building.takeIf { showBuilding },
-        room.capacity?.let { if (it == 1) "1 person" else "$it people" },
+        room.capacity?.let(::peopleLabel),
     ).joinToString(" · ")
     val background = if (highlighted) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
     Column(Modifier.fillMaxWidth().background(background).padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -717,7 +724,6 @@ private const val QUESTIONS = 3
 private val STICKY_HEADER_HEIGHT = 96.dp
 
 private val DURATIONS = listOf(30, 60, 120, 180, 240)
-private val PEOPLE = listOf(1, 2, 4, 6, 8)
 
 private val DAY = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())
 
@@ -726,4 +732,4 @@ private fun dayLabel(date: LocalDate, today: LocalDate): String =
 
 private fun durationLabel(minutes: Int): String = if (minutes < 60) "$minutes min" else "${minutes / 60} h"
 
-private fun peopleLabel(people: Int): String = if (people == 1) "Any size" else "$people+ people"
+private fun peopleLabel(people: Int): String = if (people == 1) "1 person" else "$people people"
