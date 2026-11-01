@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.melluh.neotime.R
 
@@ -53,6 +55,7 @@ private val CONTACTED_DOMAINS = listOf(
 )
 
 @Composable
+@Preview
 fun PrivacyCard(modifier: Modifier = Modifier) {
     var showDomains by remember { mutableStateOf(false) }
 
@@ -66,12 +69,12 @@ fun PrivacyCard(modifier: Modifier = Modifier) {
                 painterResource(R.drawable.ic_privacy_badge),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(64.dp),
+                modifier = Modifier.size(48.dp),
             )
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Privacy & security", style = MaterialTheme.typography.titleMedium)
+                Text("Privacy", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Your credentials stay on the device. All requests are made directly from this app to UT services.",
+                    "All requests are made directly from your device to UT services. Your personal data and login credentials are not shared.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 TextButton(onClick = { showDomains = true }, contentPadding = PaddingValues(0.dp)) {

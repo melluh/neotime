@@ -4,12 +4,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -21,8 +24,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.melluh.neotime.AppContainer
@@ -38,11 +43,17 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onLogin: () -> Unit) {
+fun SettingsScreen(
+    container: AppContainer,
+    onBack: () -> Unit,
+    onLogin: () -> Unit,
+    onOpenPrivacy: () -> Unit,
+    onOpenAbout: () -> Unit,
+) {
     val session by container.session.state.collectAsStateWithLifecycle()
     val snapshot by container.schedule.snapshot.collectAsStateWithLifecycle()
-    val osirisAllowed by container.registrations.allowed.collectAsStateWithLifecycle(initialValue = false)
     val scope = container.scope
+    var showLogoutConfirmation by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -51,6 +62,13 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onLogin: () -> U
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
                 },
+                actions = {
+                    if (session.account != null) {
+                        IconButton(onClick = { showLogoutConfirmation = true }) {
+                            Icon(Icons.Filled.ExitToApp, contentDescription = "Log out")
+                        }
+                    }
+                },
             )
         },
     ) { padding ->
@@ -58,30 +76,47 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onLogin: () -> U
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            PrivacyCard()
-
             val account = session.account
             if (account == null) {
                 NotLoggedInCard(onLogin, Modifier.fillMaxWidth())
             } else {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Logged in as", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                        Text(account.displayName ?: account.studentNumber ?: "UT account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(listOfNotNull(account.studentNumber, account.email).joinToString(" · "), style = MaterialTheme.typography.bodyMedium)
-                        Text(sessionLine(session), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (session is SessionState.NeedsInteractiveLogin) Button(onClick = onLogin) { Text("Log in again") }
-                        OutlinedButton(onClick = { scope.launch { container.session.logout(); container.schedule.refresh() } }) {
-                            Text("Log out")
-                        }
-                    }
-                }
-                OsirisCard(
-                    allowed = osirisAllowed,
-                    onAllowedChange = { scope.launch { container.registrations.setAllowed(it) } },
+                UserCard(
+                    account = account,
+                    needsInteractiveLogin = session is SessionState.NeedsInteractiveLogin,
+                    onLogin = onLogin,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+
+            SettingsNavigationBlock(
+                items = listOf(
+                    SettingsNavigationItem(
+                        title = "Privacy",
+                        onClick = onOpenPrivacy,
+                        leadingIcon = {
+                            Icon(
+                                painter = androidx.compose.ui.res.painterResource(com.melluh.neotime.R.drawable.ic_privacy_badge),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        },
+                    ),
+                    SettingsNavigationItem(
+                        title = "About this app",
+                        onClick = onOpenAbout,
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        },
+                    ),
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -113,6 +148,28 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onLogin: () -> U
                             scope.launch { container.session.debugClearAllLoginCookies(); container.schedule.refresh() }
                         }) { Text("Clear all login cookies") }
                     }
+                }
+
+                if (showLogoutConfirmation) {
+                    AlertDialog(
+                        onDismissRequest = { showLogoutConfirmation = false },
+                        text = { Text("Are you sure you want to log out?") },
+                        confirmButton = {
+                            androidx.compose.material3.Button(
+                                onClick = {
+                                    showLogoutConfirmation = false
+                                    scope.launch { container.session.logout(); container.schedule.refresh() }
+                                },
+                            ) {
+                                Text("Log out")
+                            }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(onClick = { showLogoutConfirmation = false }) {
+                                Text("Cancel")
+                            }
+                        },
+                    )
                 }
             }
         }

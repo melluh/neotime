@@ -249,7 +249,7 @@ private fun PublicDataNotice(onOpenSettings: () -> Unit) {
         ) {
             Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
             Text(
-                "Public data: rooms only for the coming weeks, no lecturers. Log in for full details.",
+                "You're seeing the limited public schedule. Log in to view the full schedule.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )

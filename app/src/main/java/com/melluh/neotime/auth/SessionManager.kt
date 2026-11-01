@@ -140,7 +140,7 @@ class SessionManager(
                 if (capture(token, account)) return notice("TimeEdit session refreshed")
             }
 
-            _state.value = SessionState.Renewing("Signing in again via UT", account)
+            _state.value = SessionState.Renewing("Signing in...", account)
             TimeEditLogin.expireTimeEditCookies()
             val token = runOffscreenSignIn()
             if (token != null && capture(token, account)) return notice("Signed in again")

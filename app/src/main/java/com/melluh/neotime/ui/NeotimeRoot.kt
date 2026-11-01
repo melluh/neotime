@@ -1,12 +1,19 @@
 package com.melluh.neotime.ui
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -19,6 +26,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
@@ -44,6 +52,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -61,7 +71,22 @@ import com.melluh.neotime.ui.picker.PickerScreen
 import com.melluh.neotime.ui.rooms.RoomsScreen
 import com.melluh.neotime.ui.schedule.ScheduleScreen
 import com.melluh.neotime.ui.settings.SettingsScreen
+import com.melluh.neotime.ui.settings.PrivacySettingsScreen
+import com.melluh.neotime.ui.settings.AboutSettingsScreen
+import com.melluh.neotime.ui.theme.NeotimeTheme
 import kotlinx.coroutines.delay
+
+private const val SETTINGS_TRANSITION_DURATION_MS = 300
+
+private val settingsTransitionSpec = tween<IntOffset>(
+    durationMillis = SETTINGS_TRANSITION_DURATION_MS,
+    easing = FastOutSlowInEasing,
+)
+
+private val settingsPopTransitionSpec = tween<Float>(
+    durationMillis = SETTINGS_TRANSITION_DURATION_MS,
+    easing = FastOutSlowInEasing,
+)
 
 @Composable
 fun NeotimeRoot(container: AppContainer) {
@@ -148,10 +173,66 @@ fun NeotimeRoot(container: AppContainer) {
                     )
                 }
                 composable("picker") { PickerScreen(container, onBack = { nav.popBackStack() }) }
-                composable("settings") { SettingsScreen(container, onBack = { nav.popBackStack() }, onLogin = openLogin) }
+                composable(
+                    "settings",
+                    enterTransition = {
+                        scaleIn(initialScale = 0.8f, animationSpec = settingsPopTransitionSpec)
+                    },
+                    exitTransition = {
+                        scaleOut(targetScale = 0.8f, animationSpec = settingsPopTransitionSpec)
+                    },
+                    popEnterTransition = {
+                        scaleIn(initialScale = 0.8f, animationSpec = settingsPopTransitionSpec)
+                    },
+                    popExitTransition = {
+                        scaleOut(targetScale = 0.8f, animationSpec = settingsPopTransitionSpec)
+                    },
+                ) {
+                    SettingsScreen(
+                        container = container,
+                        onBack = { nav.popBackStack() },
+                        onLogin = openLogin,
+                        onOpenPrivacy = { nav.navigate("privacy") },
+                        onOpenAbout = { nav.navigate("about") },
+                    )
+                }
+                composable(
+                    "privacy",
+                    enterTransition = {
+                        slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, settingsTransitionSpec)
+                    },
+                    exitTransition = {
+                        slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, settingsTransitionSpec)
+                    },
+                    popEnterTransition = {
+                        slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, settingsTransitionSpec)
+                    },
+                    popExitTransition = {
+                        slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, settingsTransitionSpec)
+                    },
+                ) {
+                    PrivacySettingsScreen(container, onBack = { nav.popBackStack() })
+                }
+                composable(
+                    "about",
+                    enterTransition = {
+                        slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, settingsTransitionSpec)
+                    },
+                    exitTransition = {
+                        slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, settingsTransitionSpec)
+                    },
+                    popEnterTransition = {
+                        slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, settingsTransitionSpec)
+                    },
+                    popExitTransition = {
+                        slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, settingsTransitionSpec)
+                    },
+                ) {
+                    AboutSettingsScreen(onBack = { nav.popBackStack() })
+                }
                 composable("login") { LoginScreen(container, onDone = { nav.popBackStack() }) }
             }
-            if (route != "login") {
+            if (route != "login" && !(route == "settings" && session is SessionState.NeedsInteractiveLogin)) {
                 SessionBanner(
                     state = session,
                     notice = notice,
@@ -214,31 +295,104 @@ fun SessionBanner(
                             modifier = Modifier.size(18.dp),
                         )
                         Text(
-                            "${state.step}…",
+                            state.step,
                             color = MaterialTheme.colorScheme.inverseOnSurface,
                             modifier = Modifier.weight(1f).padding(vertical = 10.dp),
                         )
                     }
                     needsLogin -> {
                         Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
-                        Text(
-                            "TimeEdit session expired. Tap to log in again",
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.weight(1f),
-                        )
+                        Column(modifier = Modifier.weight(1f).padding(vertical = 6.dp)) {
+                            Text(
+                                "Session expired",
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                "Tap here to log in again.",
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        }
                         IconButton(onClick = onDismiss) {
                             Icon(Icons.Filled.Close, contentDescription = "Dismiss", tint = MaterialTheme.colorScheme.onErrorContainer)
                         }
                     }
-                    notice != null -> Text(
-                        notice,
-                        color = MaterialTheme.colorScheme.inverseOnSurface,
-                        modifier = Modifier.weight(1f).padding(vertical = 10.dp),
-                    )
+                    notice != null -> {
+                        Icon(
+                            Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.inverseOnSurface,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            notice,
+                            color = MaterialTheme.colorScheme.inverseOnSurface,
+                            modifier = Modifier.weight(1f).padding(vertical = 10.dp),
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Preview(name = "Signing in again", showBackground = true, widthDp = 400)
+@Preview(
+    name = "Signing in again - Dark",
+    showBackground = true,
+    widthDp = 400,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun SessionBannerRenewingPreview() {
+    NeotimeTheme {
+        SessionBanner(
+            state = SessionState.Renewing("Signing in...", account = null),
+            notice = null,
+            dismissed = false,
+            onLogin = {},
+            onDismiss = {},
+        )
+    }
+}
+
+@Preview(name = "Signed in again", showBackground = true, widthDp = 400)
+@Preview(
+    name = "Signed in again - Dark",
+    showBackground = true,
+    widthDp = 400,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun SessionBannerSignedInAgainPreview() {
+    NeotimeTheme {
+        SessionBanner(
+            state = SessionState.LoggedOut,
+            notice = "Signed in again",
+            dismissed = false,
+            onLogin = {},
+            onDismiss = {},
+        )
+    }
+}
+
+@Preview(name = "Session expired", showBackground = true, widthDp = 400)
+@Preview(
+    name = "Session expired - Dark",
+    showBackground = true,
+    widthDp = 400,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun SessionBannerNeedsLoginPreview() {
+    NeotimeTheme {
+        SessionBanner(
+            state = SessionState.NeedsInteractiveLogin(account = null),
+            notice = null,
+            dismissed = false,
+            onLogin = {},
+            onDismiss = {},
+        )
     }
 }
 
