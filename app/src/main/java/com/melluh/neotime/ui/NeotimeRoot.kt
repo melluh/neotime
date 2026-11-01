@@ -67,6 +67,7 @@ import com.melluh.neotime.auth.SessionState
 import com.melluh.neotime.timeedit.Account
 import com.melluh.neotime.ui.login.LoginScreen
 import com.melluh.neotime.ui.map.MapScreen
+import com.melluh.neotime.ui.picker.CoursesScreen
 import com.melluh.neotime.ui.picker.PickerScreen
 import com.melluh.neotime.ui.rooms.RoomsScreen
 import com.melluh.neotime.ui.schedule.ScheduleScreen
@@ -172,7 +173,10 @@ fun NeotimeRoot(container: AppContainer) {
                         onOpenRooms = { openTab("rooms") },
                     )
                 }
-                composable("picker") { PickerScreen(container, onBack = { nav.popBackStack() }) }
+                composable("picker") {
+                    CoursesScreen(container, onBack = { nav.popBackStack() }, onAdd = { nav.navigate("picker/add") })
+                }
+                composable("picker/add") { PickerScreen(container, onBack = { nav.popBackStack() }) }
                 composable(
                     "settings",
                     enterTransition = {

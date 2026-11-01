@@ -3,15 +3,17 @@ package com.melluh.neotime.ui.picker
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -25,7 +27,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.InputChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -43,7 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -142,10 +143,21 @@ fun PickerScreen(container: AppContainer, onBack: () -> Unit) {
         if (osirisAllowed == true) vm.refreshRegistrations()
     }
 
+    val listState = rememberLazyListState()
+    LaunchedEffect(query.isEmpty()) {
+        if (query.isEmpty()) listState.scrollToItem(0)
+    }
+
+    val focusManager = LocalFocusManager.current
+    val imeVisible = WindowInsets.isImeVisible
+    LaunchedEffect(imeVisible) {
+        if (!imeVisible) focusManager.clearFocus()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Courses and groups") },
+                title = { Text("Add courses") },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
                 },
@@ -153,21 +165,6 @@ fun PickerScreen(container: AppContainer, onBack: () -> Unit) {
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            if (selection.isNotEmpty()) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                ) {
-                    for (ref in selection) {
-                        InputChip(
-                            selected = true,
-                            onClick = { vm.toggle(ref) },
-                            label = { Text(ref.name.substringBefore(','), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            trailingIcon = { Icon(Icons.Filled.Close, contentDescription = "Remove") },
-                        )
-                    }
-                }
-            }
             OutlinedTextField(
                 value = query,
                 onValueChange = { vm.query.value = it },
@@ -183,16 +180,18 @@ fun PickerScreen(container: AppContainer, onBack: () -> Unit) {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 16.dp)) {
-                for (t in PICKABLE) {
-                    FilterChip(selected = type == t, onClick = { vm.type.value = t }, label = { Text(t.label) })
+            if (query.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 16.dp)) {
+                    for (t in PICKABLE) {
+                        FilterChip(selected = type == t, onClick = { vm.type.value = t }, label = { Text(t.label) })
+                    }
                 }
             }
             if (search.loading) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp))
             search.error?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
             }
-            LazyColumn(Modifier.fillMaxSize()) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState) {
                 if (showRegistrations && askForOsiris) {
                     item(key = "registrations-consent") {
                         RegistrationsConsent(
@@ -267,7 +266,7 @@ private fun RegistrationsConsent(onAllow: () -> Unit, onDecline: () -> Unit) {
         Modifier.fillMaxWidth().padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("Your current registrations", style = MaterialTheme.typography.titleSmall)
+        Text("Your current OSIRIS registrations", style = MaterialTheme.typography.titleSmall)
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Allow fetching from OSIRIS?", style = MaterialTheme.typography.titleMedium)
@@ -285,7 +284,7 @@ private fun RegistrationsConsent(onAllow: () -> Unit, onDecline: () -> Unit) {
 private fun RegistrationsHeader(state: RegistrationsState, onRetry: () -> Unit, onAddAll: (() -> Unit)?) {
     Column(Modifier.fillMaxWidth().padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Your current registrations", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            Text("Your current OSIRIS registrations", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             if (onAddAll != null) {
                 TextButton(
                     onClick = onAddAll,

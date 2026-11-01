@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
@@ -195,7 +195,7 @@ fun ScheduleScreen(container: AppContainer, onOpenPicker: () -> Unit, onOpenSett
                     IconButton(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }) {
                         Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "Next week")
                     }
-                    IconButton(onClick = onOpenPicker) { Icon(Icons.Filled.Add, contentDescription = "Courses and groups") }
+                    IconButton(onClick = onOpenPicker) { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Courses and groups") }
                     AccountChip(session, onClick = onOpenSettings)
                 },
             )
