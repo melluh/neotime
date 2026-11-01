@@ -79,9 +79,15 @@ class TimeEditClient(
     }
 
     internal fun parseObjectsJson(body: String): List<ObjectRef> =
-        json.decodeFromString<RawObjects>(body).objects.map { o ->
+        decodeObjects(body).objects.map { o ->
             ObjectRef(o.idAndType, o.fields.values.joinToString(", ") { it.jsonPrimitive.content.trim() })
         }
+
+    /** TimeEdit answers a search without matches with plain text instead of JSON. */
+    private fun decodeObjects(body: String): RawObjects {
+        val noResults = !body.trimStart().startsWith('{') && body.contains(NO_SEARCH_RESULTS, ignoreCase = true)
+        return if (noResults) RawObjects() else json.decodeFromString<RawObjects>(body)
+    }
 
     internal fun parseObjectsHtml(body: String): List<ObjectRef> =
         Jsoup.parse(body).select("[data-id][data-name]").map { ObjectRef(it.attr("data-id"), it.attr("data-name")) }
@@ -110,7 +116,7 @@ class TimeEditClient(
     }
 
     internal fun parseRooms(body: String, building: String): List<Room> {
-        val raw = json.decodeFromString<RawObjects>(body)
+        val raw = decodeObjects(body)
         if (raw.hasMore) throw TimeEditException("Too many rooms in $building")
         return raw.objects.map { o ->
             fun field(vararg names: String) =
@@ -152,6 +158,8 @@ class TimeEditClient(
 
         /** Double-encoded on purpose, like TimeEdit's own page sends it. */
         private const val PROJECT_ROOMS_FILTER = "74.Project,Project%2520Open"
+
+        private const val NO_SEARCH_RESULTS = "no search results"
 
         /** TimeEdit answers a missing session with HTTP 412/401 and its TE Auth login page. */
         fun isLoginGate(code: Int, body: String): Boolean =

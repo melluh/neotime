@@ -1,6 +1,7 @@
 package com.melluh.neotime.timeedit
 
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.SerializationException
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -76,6 +77,24 @@ class TimeEditClientTest {
         val results = client.search(Area.STUDENT, 16, ObjectType.STUDENT_SET, "TCS MOD02")
         assertEquals(ObjectRef("12335.6", "TCS MOD02 Group 01"), results.first())
         assertEquals("objects.json", server.takeRequest().requestUrl!!.pathSegments.last())
+    }
+
+    @Test
+    fun `student search without matches returns no results`() = runTest {
+        respond { MockResponse().setBody("No search results") }
+        assertEquals(emptyList<ObjectRef>(), client.search(Area.STUDENT, 16, ObjectType.STUDENT_SET, "nothing"))
+    }
+
+    @Test
+    fun `room list without matches returns no rooms`() = runTest {
+        respond { MockResponse().setBody("No search results") }
+        assertEquals(emptyList<Room>(), client.rooms(12, "Nowhere"))
+    }
+
+    @Test(expected = SerializationException::class)
+    fun `other non-JSON search responses still fail`() = runTest {
+        respond { MockResponse().setBody("Internal error") }
+        client.search(Area.STUDENT, 16, ObjectType.STUDENT_SET, "anything")
     }
 
     @Test
