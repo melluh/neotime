@@ -337,7 +337,25 @@ fun RoomsScreen(container: AppContainer, onOpenSettings: () -> Unit, onLogin: ()
                 onRefresh = vm::refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                RoomFinder(vm, onBook, onShowOnMap, onLogin)
+                val signedIn = session !is SessionState.LoggedOut && session !is SessionState.NeedsInteractiveLogin
+                when {
+                    state.result is RoomsResult.NeedsLogin -> LoginPrompt(onLogin)
+                    // The session reads as logged out until it's restored, so wait for the result to tell
+                    state.result == null && !signedIn -> Unit
+                    else -> RoomFinder(vm, onBook, onShowOnMap)
+                }
+            }
+        }
+    }
+}
+
+/** All there is to do without a session; a list so it can still be pulled to refresh. */
+@Composable
+private fun LoginPrompt(onLogin: () -> Unit) {
+    LazyColumn(Modifier.fillMaxSize()) {
+        item {
+            Notice("You need to log in to book project rooms.") {
+                Button(onClick = onLogin) { Text("Log in") }
             }
         }
     }
@@ -345,7 +363,7 @@ fun RoomsScreen(container: AppContainer, onOpenSettings: () -> Unit, onLogin: ()
 
 /** The questions in the order you'd ask them, with the rooms that fit below. */
 @Composable
-private fun RoomFinder(vm: RoomsViewModel, onBook: (Room) -> Unit, onShowOnMap: (Room) -> Unit, onLogin: () -> Unit) {
+private fun RoomFinder(vm: RoomsViewModel, onBook: (Room) -> Unit, onShowOnMap: (Room) -> Unit) {
     val booking by vm.booking.collectAsStateWithLifecycle()
     val selected by vm.building.collectAsStateWithLifecycle()
     val filter by vm.filter.collectAsStateWithLifecycle()
@@ -409,13 +427,6 @@ private fun RoomFinder(vm: RoomsViewModel, onBook: (Room) -> Unit, onShowOnMap: 
                     if (types.size > 1) {
                         ChoiceChips(listOf(null) + types, filter.type, { it ?: "Any type" }, onSelect = vm::selectType)
                     }
-                }
-            }
-        }
-        if (state.result is RoomsResult.NeedsLogin) {
-            item {
-                Notice("Log in to see project rooms. TimeEdit only shows them to UT accounts.") {
-                    Button(onClick = onLogin) { Text("Log in") }
                 }
             }
         }
