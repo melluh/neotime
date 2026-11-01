@@ -4,13 +4,9 @@ import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,19 +40,23 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.DefaultNavTransitions
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -77,24 +77,13 @@ import com.melluh.neotime.ui.settings.AboutSettingsScreen
 import com.melluh.neotime.ui.theme.NeotimeTheme
 import kotlinx.coroutines.delay
 
-private const val SETTINGS_TRANSITION_DURATION_MS = 300
-
-private val settingsTransitionSpec = tween<IntOffset>(
-    durationMillis = SETTINGS_TRANSITION_DURATION_MS,
-    easing = FastOutSlowInEasing,
-)
-
-private val settingsPopTransitionSpec = tween<Float>(
-    durationMillis = SETTINGS_TRANSITION_DURATION_MS,
-    easing = FastOutSlowInEasing,
-)
-
 @Composable
 fun NeotimeRoot(container: AppContainer) {
     val nav = rememberNavController()
     val session by container.session.state.collectAsStateWithLifecycle()
     var dismissed by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
+    var tabBarHeight by remember { mutableStateOf(0.dp) }
 
     LaunchedEffect(session) { if (session !is SessionState.NeedsInteractiveLogin) dismissed = false }
     LaunchedEffect(Unit) {
@@ -106,6 +95,82 @@ fun NeotimeRoot(container: AppContainer) {
     }
 
     val openLogin = { nav.navigate("login") { launchSingleTop = true } }
+    val route = nav.currentBackStackEntryAsState().value?.destination?.route
+    val onTabs = route == "tabs"
+    val slidePx = with(LocalDensity.current) { SettingsSlideDistance.roundToPx() }
+
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        NavHost(
+            nav,
+            startDestination = "tabs",
+            enterTransition = { settingsEnter(slidePx) { DefaultNavTransitions.enterTransition(this) } },
+            exitTransition = { settingsExit(slidePx) { DefaultNavTransitions.exitTransition(this) } },
+            popEnterTransition = { settingsPopEnter(slidePx) { DefaultNavTransitions.enterTransition(this) } },
+            popExitTransition = { settingsPopExit(slidePx) { DefaultNavTransitions.exitTransition(this) } },
+            predictivePopEnterTransition = { swipeEdge ->
+                settingsPredictivePopEnter(slidePx) { DefaultNavTransitions.predictivePopEnterTransition(this, swipeEdge) }
+            },
+            predictivePopExitTransition = { swipeEdge ->
+                settingsPredictivePopExit(swipeEdge) { DefaultNavTransitions.predictivePopExitTransition(this, swipeEdge) }
+            },
+        ) {
+            composable("tabs") {
+                TabsScreen(
+                    container = container,
+                    onOpenPicker = { nav.navigate("picker") },
+                    onOpenSettings = { nav.navigate("settings") },
+                    onLogin = openLogin,
+                    onTabBarHeight = { tabBarHeight = it },
+                )
+            }
+            composable("picker") {
+                CoursesScreen(container, onBack = { nav.popBackStack() }, onAdd = { nav.navigate("picker/add") })
+            }
+            composable("picker/add") { PickerScreen(container, onBack = { nav.popBackStack() }) }
+            composable("settings") {
+                SettingsScreen(
+                    container = container,
+                    onBack = { nav.popBackStack() },
+                    onLogin = openLogin,
+                    onOpenPrivacy = { nav.navigate("privacy") },
+                    onOpenAbout = { nav.navigate("about") },
+                )
+            }
+            composable("privacy") { PrivacySettingsScreen(container, onBack = { nav.popBackStack() }) }
+            composable("about") { AboutSettingsScreen(onBack = { nav.popBackStack() }) }
+            composable("login") { LoginScreen(container, onDone = { nav.popBackStack() }) }
+        }
+        if (route != "login" && !(route == "settings" && session is SessionState.NeedsInteractiveLogin)) {
+            SessionBanner(
+                state = session,
+                notice = notice,
+                dismissed = dismissed,
+                onLogin = openLogin,
+                onDismiss = { dismissed = true },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .then(if (onTabs) Modifier.padding(bottom = tabBarHeight) else Modifier.navigationBarsPadding())
+                    .padding(16.dp)
+                    .widthIn(max = 560.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The three tabs with their navigation bar. This is one destination of the root [NavHost], so
+ * the bar stays part of the page and moves with it when something opens on top, instead of
+ * vanishing and resizing the page halfway through the transition.
+ */
+@Composable
+private fun TabsScreen(
+    container: AppContainer,
+    onOpenPicker: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onLogin: () -> Unit,
+    onTabBarHeight: (Dp) -> Unit,
+) {
+    val nav = rememberNavController()
     val openTab = { tab: String ->
         nav.navigate(tab) {
             popUpTo(nav.graph.findStartDestination().id) { saveState = true }
@@ -113,141 +178,65 @@ fun NeotimeRoot(container: AppContainer) {
             restoreState = true
         }
     }
-    val route = nav.currentBackStackEntryAsState().value?.destination?.route
-
-    val onTab = route == "schedule" || route == "rooms" || route == "map"
+    // The controller only knows its route once the NavHost below has composed. Remembering the
+    // last one keeps the bar's selection from animating in each time this page comes back.
+    var lastRoute by rememberSaveable { mutableStateOf("schedule") }
+    val route = nav.currentBackStackEntryAsState().value?.destination?.route ?: lastRoute
+    SideEffect { lastRoute = route }
 
     Scaffold(
         bottomBar = {
-            if (onTab) {
-                NavigationBar {
-                    NavigationBarItem(
-                        selected = route == "schedule",
-                        onClick = { openTab("schedule") },
-                        icon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
-                        label = { Text("Schedule") },
-                    )
-                    NavigationBarItem(
-                        selected = route == "rooms",
-                        onClick = { openTab("rooms") },
-                        icon = { Icon(painterResource(R.drawable.ic_meeting_room), contentDescription = null) },
-                        label = { Text("Rooms") },
-                    )
-                    NavigationBarItem(
-                        selected = route == "map",
-                        onClick = { openTab("map") },
-                        icon = { Icon(Icons.Filled.LocationOn, contentDescription = null) },
-                        label = { Text("Map") },
-                    )
-                }
+            NavigationBar {
+                NavigationBarItem(
+                    selected = route == "schedule",
+                    onClick = { openTab("schedule") },
+                    icon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
+                    label = { Text("Schedule") },
+                )
+                NavigationBarItem(
+                    selected = route == "rooms",
+                    onClick = { openTab("rooms") },
+                    icon = { Icon(painterResource(R.drawable.ic_meeting_room), contentDescription = null) },
+                    label = { Text("Rooms") },
+                )
+                NavigationBarItem(
+                    selected = route == "map",
+                    onClick = { openTab("map") },
+                    icon = { Icon(Icons.Filled.LocationOn, contentDescription = null) },
+                    label = { Text("Map") },
+                )
             }
         },
         contentWindowInsets = WindowInsets(0),
     ) { padding ->
-        Box(Modifier.fillMaxSize()) {
-            NavHost(
-                nav,
-                startDestination = "schedule",
-                modifier = Modifier.padding(padding).consumeWindowInsets(padding),
-            ) {
-                composable("schedule") {
-                    ScheduleScreen(
-                        container = container,
-                        onOpenPicker = { nav.navigate("picker") },
-                        onOpenSettings = { nav.navigate("settings") },
-                        onOpenMap = { openTab("map") },
-                    )
-                }
-                composable("rooms") {
-                    RoomsScreen(
-                        container = container,
-                        onOpenSettings = { nav.navigate("settings") },
-                        onLogin = openLogin,
-                        onOpenMap = { openTab("map") },
-                    )
-                }
-                composable("map") {
-                    MapScreen(
-                        container = container,
-                        onOpenSettings = { nav.navigate("settings") },
-                        onOpenRooms = { openTab("rooms") },
-                    )
-                }
-                composable("picker") {
-                    CoursesScreen(container, onBack = { nav.popBackStack() }, onAdd = { nav.navigate("picker/add") })
-                }
-                composable("picker/add") { PickerScreen(container, onBack = { nav.popBackStack() }) }
-                composable(
-                    "settings",
-                    enterTransition = {
-                        scaleIn(initialScale = 0.8f, animationSpec = settingsPopTransitionSpec)
-                    },
-                    exitTransition = {
-                        scaleOut(targetScale = 0.8f, animationSpec = settingsPopTransitionSpec)
-                    },
-                    popEnterTransition = {
-                        scaleIn(initialScale = 0.8f, animationSpec = settingsPopTransitionSpec)
-                    },
-                    popExitTransition = {
-                        scaleOut(targetScale = 0.8f, animationSpec = settingsPopTransitionSpec)
-                    },
-                ) {
-                    SettingsScreen(
-                        container = container,
-                        onBack = { nav.popBackStack() },
-                        onLogin = openLogin,
-                        onOpenPrivacy = { nav.navigate("privacy") },
-                        onOpenAbout = { nav.navigate("about") },
-                    )
-                }
-                composable(
-                    "privacy",
-                    enterTransition = {
-                        slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, settingsTransitionSpec)
-                    },
-                    exitTransition = {
-                        slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, settingsTransitionSpec)
-                    },
-                    popEnterTransition = {
-                        slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, settingsTransitionSpec)
-                    },
-                    popExitTransition = {
-                        slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, settingsTransitionSpec)
-                    },
-                ) {
-                    PrivacySettingsScreen(container, onBack = { nav.popBackStack() })
-                }
-                composable(
-                    "about",
-                    enterTransition = {
-                        slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, settingsTransitionSpec)
-                    },
-                    exitTransition = {
-                        slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, settingsTransitionSpec)
-                    },
-                    popEnterTransition = {
-                        slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, settingsTransitionSpec)
-                    },
-                    popExitTransition = {
-                        slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, settingsTransitionSpec)
-                    },
-                ) {
-                    AboutSettingsScreen(onBack = { nav.popBackStack() })
-                }
-                composable("login") { LoginScreen(container, onDone = { nav.popBackStack() }) }
+        val barHeight = padding.calculateBottomPadding()
+        SideEffect { onTabBarHeight(barHeight) }
+        NavHost(
+            nav,
+            startDestination = "schedule",
+            modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+        ) {
+            composable("schedule") {
+                ScheduleScreen(
+                    container = container,
+                    onOpenPicker = onOpenPicker,
+                    onOpenSettings = onOpenSettings,
+                    onOpenMap = { openTab("map") },
+                )
             }
-            if (route != "login" && !(route == "settings" && session is SessionState.NeedsInteractiveLogin)) {
-                SessionBanner(
-                    state = session,
-                    notice = notice,
-                    dismissed = dismissed,
-                    onLogin = openLogin,
-                    onDismiss = { dismissed = true },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .then(if (onTab) Modifier.padding(padding) else Modifier.navigationBarsPadding())
-                        .padding(16.dp)
-                        .widthIn(max = 560.dp),
+            composable("rooms") {
+                RoomsScreen(
+                    container = container,
+                    onOpenSettings = onOpenSettings,
+                    onLogin = onLogin,
+                    onOpenMap = { openTab("map") },
+                )
+            }
+            composable("map") {
+                MapScreen(
+                    container = container,
+                    onOpenSettings = onOpenSettings,
+                    onOpenRooms = { openTab("rooms") },
                 )
             }
         }
