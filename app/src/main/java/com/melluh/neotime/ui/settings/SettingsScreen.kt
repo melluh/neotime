@@ -67,7 +67,8 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onLogin: () -> U
                     )
                     Text(
                         "The app only connects directly to TimeEdit and UT's sign-in to load your schedule and book rooms, " +
-                            "and to UT's people pages and their image host (utwente.becdn.net) to find lecturers and their photos.",
+                            "to UT's people pages and their image host (utwente.becdn.net) to find lecturers and their photos, " +
+                            "and to MazeMap (api.mazemap.com) to load floor maps. MazeMap only sees which floors you open.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
