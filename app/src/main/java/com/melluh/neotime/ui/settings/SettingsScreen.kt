@@ -57,23 +57,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onLogin: () -> U
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Privacy", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Your data never leaves your device. neotime has no servers, accounts or analytics, " +
-                            "so your schedule, favorites and login are stored only on this phone.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        "The app only connects directly to TimeEdit and UT's sign-in to load your schedule and book rooms, " +
-                            "to UT's people pages and their image host (utwente.becdn.net) to find lecturers and their photos, " +
-                            "and to MazeMap (api.mazemap.com) to load floor maps. MazeMap only sees which floors you open.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            PrivacyCard()
 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
