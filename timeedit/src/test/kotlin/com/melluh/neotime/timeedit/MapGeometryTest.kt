@@ -9,6 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.sin
 
 class MapGeometryTest {
     private val lat = 52.24
@@ -21,6 +22,50 @@ class MapGeometryTest {
 
     private fun length(rings: Rings) = rings.sumOf { ring ->
         (ring + ring.first()).zipWithNext { a, b -> hypot((b.lon - a.lon) * metresPerLon, (b.lat - a.lat) * 110_540.0) }.sum()
+    }
+
+    @Test
+    fun `north up keeps north at the top and east on the right`() {
+        val projection = MapProjection(listOf(at(0.0, 0.0), at(40.0, 0.0), at(40.0, 20.0), at(0.0, 20.0)))
+        assertEquals(40.0, projection.width, 0.01)
+        assertEquals(20.0, projection.height, 0.01)
+        assertEquals(0.0, projection.y(at(40.0, 20.0)), 0.01)
+        assertEquals(40.0, projection.x(at(40.0, 20.0)), 0.01)
+    }
+
+    @Test
+    fun `the bearing is what points up`() {
+        val north = at(0.0, 20.0)
+        val east = at(40.0, 0.0)
+        val projection = MapProjection(listOf(at(0.0, 0.0), east, at(40.0, 20.0), north), bearing = 90.0)
+        assertEquals(20.0, projection.width, 0.01)
+        assertEquals(40.0, projection.height, 0.01)
+        assertEquals("east is at the top", 0.0, projection.y(east), 0.01)
+        assertEquals("north is on the left", 0.0, projection.x(north), 0.01)
+    }
+
+    @Test
+    fun `turning with a building's walls fits it tightly`() {
+        // 40 by 10 metres, with its long walls running 30° east of north
+        val along = at(40 * sin(Math.toRadians(30.0)), 40 * cos(Math.toRadians(30.0)))
+        val across = at(10 * cos(Math.toRadians(30.0)), -10 * sin(Math.toRadians(30.0)))
+        val corners = listOf(at(0.0, 0.0), along, GeoPoint(along.lon + across.lon - 6.85, along.lat + across.lat - lat), across)
+        val projection = MapProjection(corners, bearing = 30.0)
+        assertEquals(10.0, projection.width, 0.01)
+        assertEquals(40.0, projection.height, 0.01)
+    }
+
+    @Test
+    fun `unprojecting finds the same point back at any bearing`() {
+        val points = listOf(at(0.0, 0.0), at(100.0, 30.0), at(-20.0, 80.0))
+        listOf(0.0, 30.0, 120.0, 183.0, 300.0).forEach { bearing ->
+            val projection = MapProjection(points, bearing)
+            points.forEach { point ->
+                val back = projection.unproject(projection.x(point), projection.y(point))
+                assertEquals(point.lon, back.lon, 1e-9)
+                assertEquals(point.lat, back.lat, 1e-9)
+            }
+        }
     }
 
     @Test

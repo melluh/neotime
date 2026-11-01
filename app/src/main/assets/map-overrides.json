@@ -1,0 +1,24 @@
+{
+  "buildings": {
+    "1547": { "name": "Zilverling", "bearing": 121.4 },
+    "1823": { "name": "Spiegel", "bearing": 301.3 },
+    "2324": { "name": "Bastille", "bearing": 301.5 },
+    "1011982": { "name": "Capitool 15", "bearing": 31.4 },
+    "2330": { "name": "Cubicus", "bearing": 211.9 },
+    "2325": { "name": "Citadel", "bearing": 185.2 },
+    "2326": { "name": "Nanolab", "bearing": 122.0 },
+    "2617": { "name": "Horst Complex", "bearing": 31.5 },
+    "1194": { "name": "Ravelijn", "bearing": 31.5 },
+    "2327": { "name": "Carré", "bearing": 121.9 },
+    "1821": { "name": "Vrijhof", "bearing": 31.7 },
+    "1824": { "name": "Waaier", "bearing": 211.8 },
+    "2793": { "name": "Technohal", "bearing": 121.3 },
+    "2792": { "name": "Sportcentrum", "bearing": 301.5 },
+    "1018603": { "name": "Therm", "bearing": 301.7 },
+    "1018604": { "name": "Drienerburght", "bearing": 211.9 },
+    "1007867": { "name": "Boerderij", "bearing": 98.8 },
+    "1006888": { "name": "Langezijds", "bearing": 301.6 },
+    "1018602": { "name": "Hangar", "bearing": 111.7 },
+    "1822": { "name": "Paviljoen", "bearing": 99.0 }
+  }
+}

@@ -1,6 +1,7 @@
 package com.melluh.neotime.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.melluh.neotime.timeedit.MapOverrides
 import com.melluh.neotime.timeedit.MazeMapClient
 import com.melluh.neotime.timeedit.RoomLocation
 import kotlinx.coroutines.test.runTest
@@ -14,6 +15,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.File
 import java.time.Duration
 
 class MapRepositoryTest {
@@ -26,8 +28,14 @@ class MapRepositoryTest {
 
     private val dataStore by lazy { PreferenceDataStoreFactory.create { folder.root.resolve("test.preferences_pb") } }
 
-    private fun repository() =
-        MapRepository(MazeMapClient(OkHttpClient(), server.url("/")), dataStore, folder.root.resolve("mazemap")) { time }
+    private fun repository(overrides: String = "{}") = MapRepository(
+        MazeMapClient(OkHttpClient(), server.url("/")),
+        dataStore,
+        folder.root.resolve("mazemap"),
+        readOverrides = { overrides },
+    ) { time }
+
+    private fun buildings() = MockResponse().setBody("""{"buildings": [{"id": 1, "name": "Ravelijn"}]}""")
 
     private fun found(identifier: String = "HCT1001") = MockResponse().setBody(
         """{"pois": [{"poiId": 7, "identifier": "$identifier", "kind": "room", "buildingId": 1, "floorId": 2}]}""",
@@ -44,6 +52,24 @@ class MapRepositoryTest {
 
     @After
     fun tearDown() = server.shutdown()
+
+    private suspend fun bearing(repository: MapRepository) =
+        (repository.buildings() as MapResult.Ok).value.single().bearing
+
+    @Test
+    fun `new overrides count for buildings that are already cached`() = runTest {
+        server.enqueue(buildings())
+        assertEquals(30.0, bearing(repository("""{"buildings": {"1": {"bearing": 30}}}""")), 0.0)
+        assertEquals(120.0, bearing(repository("""{"buildings": {"1": {"bearing": 120}}}""")), 0.0)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `the overrides that ship with the app can be read`() {
+        val overrides = MapOverrides.parse(File("src/main/assets/map-overrides.json").readText())
+        assertTrue(overrides.buildings.isNotEmpty())
+        assertTrue(overrides.buildings.values.mapNotNull { it.bearing }.all { it in 0.0..360.0 })
+    }
 
     @Test
     fun `candidates are tried in order`() = runTest {

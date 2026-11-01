@@ -21,9 +21,9 @@ data class GeoPoint(val lon: Double, val lat: Double)
 /** Rings of a shape, drawn with even-odd fill so that holes and separate parts both come out right. */
 typealias Rings = List<List<GeoPoint>>
 
-/** [floors] run from lowest to highest. */
+/** [floors] run from lowest to highest. [bearing] is the compass direction, in degrees, drawn pointing up. */
 @Serializable
-data class MapBuilding(val id: Long, val name: String, val floors: List<MapFloor>) {
+data class MapBuilding(val id: Long, val name: String, val floors: List<MapFloor>, val bearing: Double = 0.0) {
     /** The ground floor where one is marked, since basements share the lowest [MapFloor.z]. */
     val defaultFloor: MapFloor?
         get() = floors.firstOrNull { it.z >= 1 } ?: floors.firstOrNull()

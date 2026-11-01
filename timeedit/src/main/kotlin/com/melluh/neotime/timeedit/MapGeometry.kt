@@ -4,6 +4,7 @@ import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 
 /** How far apart two walls can be and still be the two sides of a bridge. Real walls start around 25 cm. */
 private const val MAX_BRIDGE_WIDTH_METRES = 0.2
@@ -20,6 +21,43 @@ private const val SAME_POINT_METRES = 0.05
 
 /** About 11° off exactly opposite. */
 private const val MAX_OPPOSITE_COS = -0.98
+
+/**
+ * Turns [points] into flat metres with y pointing down, [bearing] degrees of the compass pointing
+ * up and (0, 0) at the top-left corner of what they cover. Works in Double and leaves narrowing
+ * to the caller: relative to the corner, a Float is plenty, which it isn't for a raw 52.24°.
+ */
+class MapProjection(points: List<GeoPoint>, bearing: Double = 0.0) {
+    private val originLon = points.minOf { it.lon }
+    private val originLat = points.maxOf { it.lat }
+    private val lonScale = cos(Math.toRadians(originLat)) * METRES_PER_DEGREE_LON
+    private val sin = sin(Math.toRadians(bearing))
+    private val cos = cos(Math.toRadians(bearing))
+
+    private val left = points.minOf { across(it) }
+    private val top = points.minOf { down(it) }
+
+    val width: Double = points.maxOf { across(it) } - left
+    val height: Double = points.maxOf { down(it) } - top
+
+    private fun east(p: GeoPoint) = (p.lon - originLon) * lonScale
+    private fun north(p: GeoPoint) = (p.lat - originLat) * METRES_PER_DEGREE_LAT
+    private fun across(p: GeoPoint) = east(p) * cos - north(p) * sin
+    private fun down(p: GeoPoint) = -(east(p) * sin + north(p) * cos)
+
+    fun x(p: GeoPoint): Double = across(p) - left
+    fun y(p: GeoPoint): Double = down(p) - top
+
+    /** The point drawn at ([x], [y]). */
+    fun unproject(x: Double, y: Double): GeoPoint {
+        val across = x + left
+        val down = y + top
+        return GeoPoint(
+            lon = originLon + (across * cos - down * sin) / lonScale,
+            lat = originLat - (across * sin + down * cos) / METRES_PER_DEGREE_LAT,
+        )
+    }
+}
 
 /**
  * The outline with its bridges taken out, as one ring per part. MazeMap keeps the separate parts

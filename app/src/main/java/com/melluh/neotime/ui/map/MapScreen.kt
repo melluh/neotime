@@ -218,7 +218,7 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
                 val floor = state.floor
                 when {
                     state.error != null -> Notice(state.error.orEmpty(), onRetry = vm::retry)
-                    building != null && floor != null && state.features.isNotEmpty() ->
+                    building != null && floor != null && state.features.isNotEmpty() -> {
                         FloorCanvas(
                             building,
                             floor,
@@ -230,6 +230,8 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
                             onTap = { tapped = it },
                             modifier = Modifier.fillMaxSize(),
                         )
+                        NorthArrow(building.bearing, Modifier.align(Alignment.TopEnd).padding(8.dp))
+                    }
                     !state.loading -> Notice("Nothing is mapped here.")
                 }
                 Text(

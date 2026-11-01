@@ -3,7 +3,11 @@ package com.melluh.neotime.ui.map
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -14,6 +18,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -24,6 +29,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -34,17 +41,15 @@ import com.melluh.neotime.timeedit.GeoPoint
 import com.melluh.neotime.timeedit.MapBuilding
 import com.melluh.neotime.timeedit.MapFeature
 import com.melluh.neotime.timeedit.MapFloor
+import com.melluh.neotime.timeedit.MapProjection
 import com.melluh.neotime.timeedit.Rings
 import com.melluh.neotime.timeedit.contains
 import com.melluh.neotime.timeedit.withoutBridges
 import kotlin.math.abs
-import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
 
-private const val METRES_PER_DEGREE_LON = 111_320.0
-private const val METRES_PER_DEGREE_LAT = 110_540.0
 private const val MAX_ZOOM = 16f
 private const val MARGIN = 0.94f
 private const val FOCUS_ZOOM = 5f
@@ -85,42 +90,21 @@ class MapViewport {
 }
 
 /**
- * A whole building's footprint in metres from its top-left corner, with y pointing down. Floors
- * are all placed in this, not in their own bounds, so that a spot on the screen stays the same
- * spot in the building from floor to floor.
+ * A whole building's footprint in metres from its top-left corner as drawn, facing the building's
+ * bearing. Floors are all placed in this, not in their own bounds, so that a spot on the screen
+ * stays the same spot in the building from floor to floor.
  */
-private class BuildingFrame private constructor(
-    private val minLon: Double,
-    private val maxLat: Double,
-    private val lonScale: Double,
-    val width: Float,
-    val height: Float,
-) {
-    // Relative to the building while still in Double: a Float can't hold 52.24° to better than
-    // about 40 cm, which shows as jagged walls when zoomed in.
-    fun project(p: GeoPoint) = Offset(
-        ((p.lon - minLon) * lonScale).toFloat(),
-        ((maxLat - p.lat) * METRES_PER_DEGREE_LAT).toFloat(),
-    )
+private class BuildingFrame private constructor(private val projection: MapProjection) {
+    val width = projection.width.toFloat()
+    val height = projection.height.toFloat()
 
-    fun unproject(at: Offset) = GeoPoint(minLon + at.x / lonScale, maxLat - at.y / METRES_PER_DEGREE_LAT)
+    fun project(p: GeoPoint) = Offset(projection.x(p).toFloat(), projection.y(p).toFloat())
+
+    fun unproject(at: Offset) = projection.unproject(at.x.toDouble(), at.y.toDouble())
 
     companion object {
-        fun of(points: List<GeoPoint>): BuildingFrame? {
-            if (points.isEmpty()) return null
-            val minLon = points.minOf { it.lon }
-            val maxLon = points.maxOf { it.lon }
-            val minLat = points.minOf { it.lat }
-            val maxLat = points.maxOf { it.lat }
-            val lonScale = cos(Math.toRadians(maxLat)) * METRES_PER_DEGREE_LON
-            return BuildingFrame(
-                minLon,
-                maxLat,
-                lonScale,
-                ((maxLon - minLon) * lonScale).toFloat(),
-                ((maxLat - minLat) * METRES_PER_DEGREE_LAT).toFloat(),
-            )
-        }
+        fun of(points: List<GeoPoint>, bearing: Double): BuildingFrame? =
+            if (points.isEmpty()) null else BuildingFrame(MapProjection(points, bearing))
     }
 }
 
@@ -188,7 +172,7 @@ fun FloorCanvas(
 ) {
     val frame = remember(building.id, features) {
         val outlines = building.floors.flatMap { it.outline.orEmpty().flatten() }
-        BuildingFrame.of(outlines.ifEmpty { features.flatMap { it.rings.orEmpty().flatten() } })
+        BuildingFrame.of(outlines.ifEmpty { features.flatMap { it.rings.orEmpty().flatten() } }, building.bearing)
     } ?: return
     val geometry = remember(frame, floor.id, features) { FloorGeometry.of(frame, floor, features) }
 
@@ -279,6 +263,31 @@ fun FloorCanvas(
     }
 }
 
+/** Shows where north is on a map drawn with [bearing] pointing up. The coloured half points north. */
+@Composable
+fun NorthArrow(bearing: Double, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    val north = colors.primary
+    val south = colors.outline
+    Surface(
+        modifier.size(36.dp).semantics { contentDescription = "North arrow" },
+        shape = CircleShape,
+        color = colors.surfaceContainerHigh,
+    ) {
+        Canvas(Modifier.padding(7.dp).rotate(-bearing.toFloat())) {
+            val halfWidth = size.width * NEEDLE_WIDTH / 2
+            fun half(tipY: Float) = Path().apply {
+                moveTo(center.x, tipY)
+                lineTo(center.x + halfWidth, center.y)
+                lineTo(center.x - halfWidth, center.y)
+                close()
+            }
+            drawPath(half(0f), north)
+            drawPath(half(size.height), south)
+        }
+    }
+}
+
 private fun fitScale(frame: BuildingFrame, size: Size): Float =
     min(size.width / frame.width, size.height / frame.height) * MARGIN
 
@@ -299,3 +308,4 @@ private fun DrawScope.drawLabels(geometry: FloorGeometry, scale: Float, origin: 
 }
 
 private const val MIN_LABEL_ROOM_DP = 16
+private const val NEEDLE_WIDTH = 0.4f

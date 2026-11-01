@@ -51,7 +51,9 @@ class AppContainer(app: Application) {
     val schedule = ScheduleRepository(client, session, app.settings, File(app.filesDir, "schedule.json"))
     val lecturers = LecturerRepository(PeopleDirectory(anonymousHttp), File(app.filesDir, "lecturers.json"))
     val rooms = RoomRepository(client, session, schedule, app.settings)
-    val maps = MapRepository(MazeMapClient(anonymousHttp), app.settings, File(app.cacheDir, "mazemap"))
+    val maps = MapRepository(MazeMapClient(anonymousHttp), app.settings, File(app.cacheDir, "mazemap"), readOverrides = {
+        app.assets.open("map-overrides.json").bufferedReader().use { it.readText() }
+    })
     val focus = RoomFocus(maps)
 
     private val osirisClient = OsirisClient(http)

@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import com.melluh.neotime.timeedit.MapBuilding
 import com.melluh.neotime.timeedit.MapFeature
+import com.melluh.neotime.timeedit.MapOverrides
 import com.melluh.neotime.timeedit.MazeMapClient
 import com.melluh.neotime.timeedit.MazeMapException
 import com.melluh.neotime.timeedit.RoomLocation
@@ -42,14 +43,20 @@ private data class Cached<T>(val fetchedAtEpochMs: Long, val value: T)
 @Serializable
 private data class CheckedLocation(val checkedAtEpochMs: Long, val location: RoomLocation? = null)
 
-/** MazeMap's data barely changes, so it's fetched on demand and kept for a week. */
+/**
+ * MazeMap's data barely changes, so it's fetched on demand and kept for a week. [readOverrides]
+ * gives the [MapOverrides] JSON, which goes on top of the cached copy, not into it: a new app
+ * version's overrides then count at once, rather than whenever the cache runs out.
+ */
 class MapRepository(
     private val client: MazeMapClient,
     private val dataStore: DataStore<Preferences>,
     private val cacheDir: File,
+    private val readOverrides: () -> String = { "{}" },
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+    private val overrides by lazy { MapOverrides.parse(readOverrides()) }
     private val locationsFile = File(cacheDir, "room-locations.json")
     private val locationsSerializer = MapSerializer(String.serializer(), CheckedLocation.serializer())
     private val locationsLock = Mutex()
@@ -64,8 +71,11 @@ class MapRepository(
         }
     }
 
-    suspend fun buildings(): MapResult<List<MapBuilding>> =
-        cached("buildings.json", ListSerializer(MapBuilding.serializer())) { client.buildings() }
+    suspend fun buildings(): MapResult<List<MapBuilding>> {
+        val result = cached("buildings.json", ListSerializer(MapBuilding.serializer())) { client.buildings() }
+        if (result !is MapResult.Ok) return result
+        return result.copy(value = withContext(Dispatchers.IO) { overrides }.applyTo(result.value))
+    }
 
     suspend fun floorFeatures(floorId: Long): MapResult<List<MapFeature>> =
         cached("floor-$floorId.json", ListSerializer(MapFeature.serializer())) { client.floorFeatures(floorId) }
