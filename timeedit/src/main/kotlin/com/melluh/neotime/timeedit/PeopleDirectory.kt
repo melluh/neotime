@@ -11,9 +11,20 @@ import org.jsoup.Jsoup
 import java.io.IOException
 import java.text.Normalizer
 
-/** A person's public UT profile. Most photos are AVIF; about 4 in 10 people have none. */
+/**
+ * A person's public UT profile. Most photos are AVIF; about 4 in 10 people have none.
+ * [displayName] is null only in entries cached before it was added.
+ */
 @Serializable
-data class PersonMatch(val profileUrl: String, val photoUrl: String? = null)
+data class PersonMatch(val profileUrl: String, val photoUrl: String? = null, val displayName: String? = null)
+
+/** What a person's profile page adds. Its [photoUrl] is twice the size of the search result's. */
+@Serializable
+data class PersonDetails(
+    val photoUrl: String? = null,
+    val email: String? = null,
+    val offices: List<String> = emptyList(),
+)
 
 /** TimeEdit lists roles such as "*Unsupervised" in the lecturer column; those aren't people. */
 fun isPlaceholderLecturer(name: String): Boolean = name.startsWith("*")
@@ -36,16 +47,39 @@ class PeopleDirectory(
 
     /** Returns the one person called [name], or null when none or several match. */
     suspend fun lookup(name: String): PersonMatch? {
-        val html = withContext(Dispatchers.IO) {
-            val request = Request.Builder().url(searchUrl(name)).header("User-Agent", TimeEditClient.USER_AGENT).build()
-            http.newCall(request).execute().use { r ->
-                if (!r.isSuccessful) throw IOException("People search failed: HTTP ${r.code}")
-                r.body?.string().orEmpty()
-            }
-        }
-        val tile = match(name, parseTiles(html)) ?: return null
+        val tile = match(name, parseTiles(download(searchUrl(name)))) ?: return null
         val profile = base.newBuilder().addPathSegment(tile.slug).build().toString()
-        return PersonMatch(profile, tile.photoUrl)
+        return PersonMatch(profile, tile.photoUrl, fullName(tile.title) ?: name)
+    }
+
+    /** Reads the profile page at [profileUrl], as returned by [lookup]. */
+    suspend fun details(profileUrl: String): PersonDetails = parseDetails(download(profileUrl))
+
+    private suspend fun download(url: String): String = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(url).header("User-Agent", TimeEditClient.USER_AGENT).build()
+        http.newCall(request).execute().use { r ->
+            if (!r.isSuccessful) throw IOException("People page failed: HTTP ${r.code}")
+            r.body?.string().orEmpty()
+        }
+    }
+
+    /** Offices come from the visiting addresses, because the page's summary names only one. */
+    internal fun parseDetails(html: String): PersonDetails {
+        val page = Jsoup.parse(html)
+        return PersonDetails(
+            photoUrl = page.selectFirst("img.pageheader__insetimage")?.attr("src")?.takeIf { it.isNotEmpty() },
+            email = page.selectFirst(".page-sidebar__panel--specsheet a[href^=mailto:]")?.text()?.takeIf { it.isNotEmpty() },
+            offices = page.select("#address-visiting .person-address-data").mapNotNull { address ->
+                val line = address.selectFirst("p.normal")?.textNodes()?.firstOrNull()?.text()?.trim()
+                line?.takeIf { it.isNotEmpty() }?.let(::office)
+            }.distinct(),
+        )
+    }
+
+    /** "Zilverling 3035" for "Zilverling (building no. 11), room 3035", as in search results. */
+    private fun office(address: String): String {
+        val (building, room) = ADDRESS_LINE.matchEntire(address)?.destructured ?: return address
+        return "$building $room".trim()
     }
 
     internal data class Tile(val slug: String, val title: String, val photoUrl: String?)
@@ -77,6 +111,18 @@ class PeopleDirectory(
     }
 
     /**
+     * "Bos, P. van den (Petra)" is "Petra van den Bos". Null when the title has no first name.
+     * A nickname nested in the parentheses is dropped: "(Yongjian(Tommy))" is "Yongjian".
+     */
+    private fun fullName(title: String): String? {
+        val parsed = TITLE.matchEntire(title.trim()) ?: return null
+        val (surname, _, prefix, firstName) = parsed.destructured
+        val given = firstName.substringBefore('(').trim()
+        if (given.isEmpty()) return null
+        return "$given $prefix $surname".trim().replace(WHITESPACE, " ")
+    }
+
+    /**
      * Compares letters and digits only, because the two sites punctuate differently:
      * "L.J Pronk" is "L.J." and "Arenas-Oude Alink" is "Arenas - Oude Alink" on the people pages.
      */
@@ -86,8 +132,15 @@ class PeopleDirectory(
     private companion object {
         val DEFAULT_BASE = "https://people.utwente.nl/".toHttpUrl()
 
-        /** Surname, initials, optional prefix ("van den"), optional first name in parentheses. */
-        val TITLE = Regex("""([^,]+),\s*(\S+)\s*([^(]*?)\s*(?:\((.*)\))?""")
+        /**
+         * Surname, initials (sometimes spaced, "R. N. N."), optional prefix ("van den"),
+         * optional first name in parentheses.
+         */
+        val TITLE = Regex("""([^,]+),\s*(\S+(?:\s+\p{Lu}\.\S*)*)\s*([^(]*?)\s*(?:\((.*)\))?""")
+        val WHITESPACE = Regex("""\s+""")
         val NOT_NAME_CHARACTER = Regex("""[^\p{L}\p{N}]+""")
+
+        /** The building, its number, and usually a room. */
+        val ADDRESS_LINE = Regex("""(.+?) \(building no\. [^)]*\)(?:, room (.+))?""")
     }
 }

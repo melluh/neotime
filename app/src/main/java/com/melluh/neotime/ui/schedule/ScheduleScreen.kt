@@ -1,10 +1,8 @@
 package com.melluh.neotime.ui.schedule
 
 import android.content.Intent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,10 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
@@ -45,8 +41,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -55,7 +49,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil3.compose.AsyncImage
 import com.melluh.neotime.AppContainer
 import com.melluh.neotime.data.LecturerEntry
 import com.melluh.neotime.data.RefreshResult
@@ -124,10 +117,17 @@ class ScheduleViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.lecturers.load(names) }
     }
 
+    /** Returns false if the profile page couldn't be read. */
+    suspend fun loadLecturerProfile(name: String): Boolean = container.lecturers.loadProfile(name)
+
     fun lecturerSearchUrl(name: String): String = container.lecturers.searchUrl(name)
 
     /** Returns why [place] can't be shown, or null if the Map tab can open it. */
     suspend fun showOnMap(place: RoomPlace): String? = container.focus.showOnMap(place.name, place.identifier)
+
+    /** Returns why [office] can't be shown, or null if the Map tab can open it. */
+    suspend fun showOfficeOnMap(office: String): String? =
+        container.focus.showOnMap(office, RoomNames.officeIdentifier(office))
 
     fun messageShown() {
         _messages.value = null
@@ -277,6 +277,7 @@ private fun EventSheet(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var mapProblem by remember(event) { mutableStateOf<String?>(null) }
+    var openedLecturer by remember(event) { mutableStateOf<String?>(null) }
     val places = event.places.filter { it.identifier != null || RoomNames.identifierCandidates(it.name).isNotEmpty() }
     // Single links are kept as they are, in case one has no room id. Joined ones can't be opened whole.
     val links = event.places.mapNotNull { place -> place.mapUrl?.let { place.name to it } }
@@ -302,11 +303,7 @@ private fun EventSheet(
                 Column {
                     DetailLabel("Lecturers")
                     event.lecturers.forEach { name ->
-                        val match = lecturers[name]?.match
-                        LecturerRow(name, match) {
-                            val url = match?.profileUrl ?: vm.lecturerSearchUrl(name)
-                            context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
-                        }
+                        LecturerRow(name, lecturers[name]?.match) { openedLecturer = name }
                     }
                 }
             }
@@ -329,6 +326,9 @@ private fun EventSheet(
                 }
             }
         }
+        openedLecturer?.let { name ->
+            LecturerCard(name, lecturers[name], vm, onOpenMap, onDismiss = { openedLecturer = null })
+        }
     }
 }
 
@@ -338,41 +338,18 @@ private fun LecturerRow(name: String, match: PersonMatch?, onClick: () -> Unit) 
         Text(name, style = MaterialTheme.typography.bodyLarge)
         return
     }
+    val displayName = match?.displayName ?: name
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClickLabel = "Open profile of $name", onClick = onClick)
+            .clickable(onClickLabel = "Show details of $displayName", onClick = onClick)
             .padding(vertical = 6.dp),
     ) {
-        // The photo draws over the initials, which stay visible while loading or if it can't be decoded
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
-        ) {
-            Text(
-                initials(name),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-            match?.photoUrl?.let { url ->
-                AsyncImage(
-                    model = url,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
-        Text(name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+        LecturerAvatar(displayName, listOfNotNull(match?.photoUrl), size = 40.dp, initialsStyle = MaterialTheme.typography.labelLarge)
+        Text(displayName, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
     }
-}
-
-private fun initials(name: String): String {
-    val words = name.split(' ').filter { it.isNotEmpty() }
-    return listOfNotNull(words.firstOrNull(), words.lastOrNull().takeIf { words.size > 1 })
-        .joinToString("") { it.take(1).uppercase() }
 }
 
 @Composable

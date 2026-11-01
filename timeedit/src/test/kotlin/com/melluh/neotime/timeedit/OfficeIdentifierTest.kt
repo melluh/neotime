@@ -13,6 +13,14 @@ class OfficeIdentifierTest {
         assertEquals("SP625", RoomNames.officeIdentifier("Spiegel 625"))
         assertEquals("HCME328", RoomNames.officeIdentifier("Horst Complex ME328"))
         assertEquals("CRC4641", RoomNames.officeIdentifier("Carré C4641"))
+        assertEquals("CRC3718", RoomNames.officeIdentifier("Carré 3718"))
+        assertEquals("BO116", RoomNames.officeIdentifier("Boerderij 116"))
+        assertEquals("CIH200", RoomNames.officeIdentifier("Citadel H200"))
+        assertEquals("NL1001", RoomNames.officeIdentifier("Nanolab 1001"))
+        assertEquals("PA104", RoomNames.officeIdentifier("Paviljoen 104"))
+        assertEquals("SC114", RoomNames.officeIdentifier("Sportcentrum 114"))
+        assertEquals("TL2101", RoomNames.officeIdentifier("Technohal 2101"))
+        assertEquals("VR131", RoomNames.officeIdentifier("Vrijhof 131"))
     }
 
     @Test

@@ -41,12 +41,85 @@ class PeopleDirectoryTest {
         assertTrue(tom.photoUrl!!.endsWith("/tvandijk.avif"))
     }
 
+    private fun details(fixture: String) = directory.parseDetails(Fixtures.read("people/$fixture"))
+
+    @Test
+    fun `a profile has the larger photo, email and office`() {
+        val details = details("profile_t_van_dijk.html")
+        assertTrue(details.photoUrl!!.endsWith("/tvandijk.avif"))
+        assertTrue("0c016340014001" in details.photoUrl!!) // the 320px rendition, not the building
+        assertEquals("t.vandijk@utwente.nl", details.email)
+        assertEquals(listOf("Zilverling 3035"), details.offices)
+    }
+
+    @Test
+    fun `every visiting address is an office, the mailing address isn't`() {
+        val details = details("profile_j_van_loon.html")
+        assertEquals(listOf("Spiegel 418", "Ravelijn 1438", "Zilverling 1057"), details.offices)
+    }
+
+    @Test
+    fun `a profile without a photo has none, rather than the building's`() {
+        val details = details("profile_y_van_dijk.html")
+        assertNull(details.photoUrl)
+        assertEquals("y.vandijk@utwente.nl", details.email)
+        assertEquals(listOf("Langezijds 2418"), details.offices)
+    }
+
+    @Test
+    fun `an address without a room is just the building`() {
+        val html = """<div id="address-visiting"><div class="person-address-data"><h3>University of Twente</h3>
+            <p class="normal">Carré (building no. 15)<br/>Hallenweg 23</p></div></div>"""
+        assertEquals(listOf("Carré"), directory.parseDetails(html).offices)
+    }
+
+    @Test
+    fun `details are read from the profile page`() = runTest {
+        server.enqueue(MockResponse().setBody(Fixtures.read("people/profile_t_van_dijk.html")))
+        val details = directory.details(server.url("/t.vandijk").toString())
+        assertEquals("t.vandijk@utwente.nl", details.email)
+        assertEquals("/t.vandijk", server.takeRequest().path)
+    }
+
     @Test
     fun `lookup returns the profile and photo of the one match`() = runTest {
         server.enqueue(MockResponse().setBody(Fixtures.read("people/search_t_van_dijk.html")))
         val match = directory.lookup("T. van Dijk")
         assertEquals(server.url("/t.vandijk").toString(), match!!.profileUrl)
         assertTrue(match.photoUrl!!.startsWith("https://utwente.becdn.net/"))
+        assertEquals("Tom van Dijk", match.displayName)
+    }
+
+    private suspend fun displayName(name: String, title: String): String? {
+        server.enqueue(
+            MockResponse().setBody(
+                """<div class="ut-person-tile" data-link="slug"><h3 class="ut-person-tile__title">$title</h3></div>""",
+            ),
+        )
+        return directory.lookup(name)?.displayName
+    }
+
+    @Test
+    fun `display name uses the first name instead of initials`() = runTest {
+        assertEquals("Roy Damgrave", displayName("R.G.J. Damgrave", "Damgrave, R.G.J. (Roy)"))
+        assertEquals("Petra van den Bos", displayName("P. van den Bos", "Bos, P. van den (Petra)"))
+        assertEquals("Robbin Jan van Duijne", displayName("R.J. van Duijne", "Duijne, R.J. van (Robbin Jan)"))
+    }
+
+    @Test
+    fun `display name leaves out spaced initials`() = runTest {
+        assertEquals("Rodrigo Nogueira Nobre", displayName("R.N.N. Nogueira Nobre", "Nogueira Nobre, R. N. N. (Rodrigo)"))
+    }
+
+    @Test
+    fun `display name leaves out a nested nickname`() = runTest {
+        assertEquals("Yongjian Tao", displayName("Y. Tao", "Tao, Y. (Yongjian(Tommy))"))
+    }
+
+    @Test
+    fun `display name falls back to the given name without a first name`() = runTest {
+        assertEquals("J. Doe", displayName("J. Doe", "Doe, J."))
+        assertEquals("Y.L. Lyu", displayName("Y.L. Lyu", "Lyu, Y.L. ()"))
     }
 
     @Test

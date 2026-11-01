@@ -1,6 +1,7 @@
 package com.melluh.neotime.data
 
 import com.melluh.neotime.timeedit.PeopleDirectory
+import com.melluh.neotime.timeedit.PersonDetails
 import com.melluh.neotime.timeedit.PersonMatch
 import com.melluh.neotime.timeedit.isPlaceholderLecturer
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +25,14 @@ import java.util.concurrent.ConcurrentHashMap
 
 /** A finished lookup. A null [match] means the name didn't resolve to exactly one person. */
 @Serializable
-data class LecturerEntry(val match: PersonMatch? = null, val fetchedAtEpochMs: Long = 0)
+data class LecturerEntry(
+    val match: PersonMatch? = null,
+    val fetchedAtEpochMs: Long = 0,
+    val profile: LecturerProfile? = null,
+)
+
+@Serializable
+data class LecturerProfile(val details: PersonDetails, val fetchedAtEpochMs: Long)
 
 /** Remembers lookups across launches, since each one downloads a ~130 KB results page. */
 class LecturerRepository(
@@ -36,6 +44,7 @@ class LecturerRepository(
     private val serializer = MapSerializer(String.serializer(), LecturerEntry.serializer())
     private val writeLock = Mutex()
     private val inFlight = ConcurrentHashMap.newKeySet<String>()
+    private val profilesInFlight = ConcurrentHashMap.newKeySet<String>()
 
     private val _entries = MutableStateFlow(readCache())
 
@@ -54,8 +63,11 @@ class LecturerRepository(
     private suspend fun fetch(name: String) {
         if (!inFlight.add(name)) return
         try {
-            val entry = LecturerEntry(directory.lookup(name), now())
-            _entries.update { it + (name to entry) }
+            val match = directory.lookup(name)
+            _entries.update { entries ->
+                val profile = entries[name]?.takeIf { it.match?.profileUrl == match?.profileUrl }?.profile
+                entries + (name to LecturerEntry(match, now(), profile))
+            }
             save()
         } catch (e: IOException) {
             // Offline or site trouble: the row falls back to the search link
@@ -64,11 +76,40 @@ class LecturerRepository(
         }
     }
 
+    /**
+     * Reads the profile page of [name], who must have a match, unless that's been done lately.
+     * This is left for when someone asks, as most lecturers' cards never get opened.
+     * Returns false if it had to be read and couldn't be.
+     */
+    suspend fun loadProfile(name: String): Boolean {
+        val entry = _entries.value[name]
+        val url = entry?.match?.profileUrl ?: return true
+        if (entry.profile?.let { isRecent(it.fetchedAtEpochMs, MATCH_MAX_AGE) } == true) return true
+        if (!profilesInFlight.add(name)) return true
+        return try {
+            val profile = LecturerProfile(directory.details(url), now())
+            _entries.update { entries ->
+                val current = entries[name]?.takeIf { it.match?.profileUrl == url } ?: return@update entries
+                entries + (name to current.copy(profile = profile))
+            }
+            save()
+            true
+        } catch (e: IOException) {
+            false
+        } finally {
+            profilesInFlight.remove(name)
+        }
+    }
+
     private fun isFresh(entry: LecturerEntry?): Boolean {
         if (entry == null) return false
-        val maxAge = if (entry.match != null) MATCH_MAX_AGE else MISS_MAX_AGE
-        return Duration.ofMillis(now() - entry.fetchedAtEpochMs) < maxAge
+        // Cached before names were stored: refresh now rather than show initials for another month
+        if (entry.match != null && entry.match.displayName == null) return false
+        return isRecent(entry.fetchedAtEpochMs, if (entry.match != null) MATCH_MAX_AGE else MISS_MAX_AGE)
     }
+
+    private fun isRecent(fetchedAtEpochMs: Long, maxAge: Duration): Boolean =
+        Duration.ofMillis(now() - fetchedAtEpochMs) < maxAge
 
     private suspend fun save() = writeLock.withLock {
         withContext(Dispatchers.IO) {

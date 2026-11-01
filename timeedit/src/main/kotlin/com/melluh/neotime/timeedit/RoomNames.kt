@@ -73,12 +73,22 @@ object RoomNames {
 
     private val OFFICE = Regex("""(.+?) ([A-Z]*\d+[A-Z]*)""")
 
-    /** Checked against MazeMap. Carré is left out, as its rooms may or may not repeat the "C". */
+    /**
+     * Checked against MazeMap. Carré is handled apart, as its rooms may or may not repeat the "C",
+     * and Capitool is missing because MazeMap has no identifiers for its offices.
+     */
     private val OFFICE_BUILDINGS = mapOf(
+        "Boerderij" to "BO",
+        "Citadel" to "CI",
         "Horst Complex" to "HC",
         "Langezijds" to "LA",
+        "Nanolab" to "NL",
+        "Paviljoen" to "PA",
         "Ravelijn" to "RA",
         "Spiegel" to "SP",
+        "Sportcentrum" to "SC",
+        "Technohal" to "TL",
+        "Vrijhof" to "VR",
         "Zilverling" to "ZI",
     )
 }
