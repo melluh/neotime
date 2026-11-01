@@ -125,6 +125,7 @@ class PeopleDirectory(
     /**
      * Compares letters and digits only, because the two sites punctuate differently:
      * "L.J Pronk" is "L.J." and "Arenas-Oude Alink" is "Arenas - Oude Alink" on the people pages.
+     * TimeEdit's apostrophes are modifier letters (U+02BC), so those don't count as letters here.
      */
     private fun normalize(name: String): String =
         Normalizer.normalize(name, Normalizer.Form.NFD).replace(NOT_NAME_CHARACTER, "").lowercase()
@@ -138,7 +139,7 @@ class PeopleDirectory(
          */
         val TITLE = Regex("""([^,]+),\s*(\S+(?:\s+\p{Lu}\.\S*)*)\s*([^(]*?)\s*(?:\((.*)\))?""")
         val WHITESPACE = Regex("""\s+""")
-        val NOT_NAME_CHARACTER = Regex("""[^\p{L}\p{N}]+""")
+        val NOT_NAME_CHARACTER = Regex("""(?:[^\p{L}\p{N}]|\p{Lm})+""")
 
         /** The building, its number, and usually a room. */
         val ADDRESS_LINE = Regex("""(.+?) \(building no\. [^)]*\)(?:, room (.+))?""")

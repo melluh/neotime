@@ -188,6 +188,11 @@ class PeopleDirectoryTest {
     }
 
     @Test
+    fun `timeedit's modifier letter apostrophe matches a plain one`() = runTest {
+        assertEquals("Pim van 't Hof", displayName("P. van ʼt Hof", "Hof, P. van 't (Pim)"))
+    }
+
+    @Test
     fun `different initials are different people`() {
         val tiles = listOf(tile("Meer, A. van der (Annemieke)"), tile("Meer, A.D. van der (Andries)"))
         assertEquals(tiles[1], directory.match("A.D. van der Meer", tiles))
