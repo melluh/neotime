@@ -58,4 +58,27 @@ object RoomNames {
         val (building, room) = ROOM_CODE.find(key)?.destructured ?: return emptyList()
         return listOfNotNull(BUILDING_CODES[building]?.plus(room), building + room)
     }
+
+    /**
+     * The MazeMap identifier of an office as the people pages write it, e.g. "HCME328" for
+     * "Horst Complex ME328". Null for what doesn't name a room, such as "Spiegel kantoortuin".
+     */
+    fun officeIdentifier(office: String): String? {
+        val (building, room) = OFFICE.matchEntire(office.trim())?.destructured ?: return null
+        return when (building) {
+            "Carré" -> "CRC" + room.removePrefix("C")
+            else -> OFFICE_BUILDINGS[building]?.plus(room)
+        }
+    }
+
+    private val OFFICE = Regex("""(.+?) ([A-Z]*\d+[A-Z]*)""")
+
+    /** Checked against MazeMap. Carré is left out, as its rooms may or may not repeat the "C". */
+    private val OFFICE_BUILDINGS = mapOf(
+        "Horst Complex" to "HC",
+        "Langezijds" to "LA",
+        "Ravelijn" to "RA",
+        "Spiegel" to "SP",
+        "Zilverling" to "ZI",
+    )
 }
