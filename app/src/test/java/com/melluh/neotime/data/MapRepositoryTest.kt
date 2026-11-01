@@ -1,9 +1,12 @@
 package com.melluh.neotime.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import com.melluh.neotime.timeedit.MapOverrides
 import com.melluh.neotime.timeedit.MazeMapClient
 import com.melluh.neotime.timeedit.RoomLocation
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -69,6 +72,31 @@ class MapRepositoryTest {
         val overrides = MapOverrides.parse(File("src/main/assets/map-overrides.json").readText())
         assertTrue(overrides.buildings.isNotEmpty())
         assertTrue(overrides.buildings.values.mapNotNull { it.bearing }.all { it in 0.0..360.0 })
+    }
+
+    @Test
+    fun `recent buildings are latest first without repeats`() = runTest {
+        val repository = repository()
+        repository.select(1, 10)
+        repository.select(2, 20)
+        repository.select(1, 11)
+        assertEquals(listOf(1L, 2L), repository.recentBuildings.first())
+    }
+
+    @Test
+    fun `only the last few buildings are kept`() = runTest {
+        val repository = repository()
+        for (id in 1L..4L) repository.select(id, null)
+        assertEquals(listOf(4L, 3L, 2L), repository.recentBuildings.first())
+    }
+
+    @Test
+    fun `the last building counts as recent on installs without a list`() = runTest {
+        dataStore.edit { it[longPreferencesKey("map_building_id")] = 5 }
+        val repository = repository()
+        assertEquals(listOf(5L), repository.recentBuildings.first())
+        repository.select(6, null)
+        assertEquals(listOf(6L, 5L), repository.recentBuildings.first())
     }
 
     @Test

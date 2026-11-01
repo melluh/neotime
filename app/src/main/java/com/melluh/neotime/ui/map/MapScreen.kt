@@ -1,21 +1,21 @@
 package com.melluh.neotime.ui.map
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -35,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -187,24 +189,22 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
         state.features.filter { it.identifier in state.bookable }.map { it.id }.toSet()
     }
     var tapped by remember { mutableStateOf<MapFeature?>(null) }
+    var pickingBuilding by remember { mutableStateOf(false) }
+    val recentBuildings by container.maps.recentBuildings.collectAsStateWithLifecycle(emptyList())
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Map") },
+                title = { BuildingTitle(state.building, state.buildings.isNotEmpty()) { pickingBuilding = true } },
                 actions = { AccountChip(session, onClick = onOpenSettings) },
             )
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            // Keeps its space when idle, so the pickers don't jump on every floor change
+            // Keeps its space when idle, so the map doesn't jump on every floor change
             Box(Modifier.fillMaxWidth().height(4.dp)) {
                 if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             }
-            if (state.buildings.isNotEmpty()) {
-                BuildingPicker(state.buildings, state.building, vm::selectBuilding)
-            }
-            state.building?.let { FloorPicker(it.floors, state.floor, vm::selectFloor) }
             if (state.stale) {
                 Text(
                     "May be out of date",
@@ -240,8 +240,28 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
                 )
+                state.building?.let {
+                    FloorPicker(
+                        it.floors,
+                        state.floor,
+                        vm::selectFloor,
+                        Modifier.align(Alignment.CenterEnd).padding(8.dp),
+                    )
+                }
             }
         }
+    }
+
+    if (pickingBuilding) {
+        BuildingSheet(
+            state.buildings,
+            recentBuildings,
+            onSelect = {
+                pickingBuilding = false
+                vm.selectBuilding(it)
+            },
+            onDismiss = { pickingBuilding = false },
+        )
     }
 
     tapped?.let { feature ->
@@ -276,48 +296,48 @@ private fun RoomSheet(feature: MapFeature, room: Room?, onViewInRooms: (Room) ->
     }
 }
 
+/** Opens the building picker. Says "Map" until there's a building to name. */
 @Composable
-private fun BuildingPicker(buildings: List<MapBuilding>, selected: MapBuilding?, onSelect: (MapBuilding) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-        OutlinedButton(onClick = { open = true }) {
-            Text(selected?.name ?: "Building")
-            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            buildings.forEach { building ->
-                DropdownMenuItem(
-                    text = { Text(building.name) },
-                    onClick = {
-                        open = false
-                        onSelect(building)
-                    },
-                )
-            }
-        }
+private fun BuildingTitle(selected: MapBuilding?, canPick: Boolean, onClick: () -> Unit) {
+    Row(Modifier.clickable(enabled = canPick, onClick = onClick), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            selected?.name ?: "Map",
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        if (canPick) Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Change building")
     }
 }
 
 /** Top floor first, the way a lift panel reads. */
 @Composable
-private fun FloorPicker(floors: List<MapFloor>, selected: MapFloor?, onSelect: (MapFloor) -> Unit) {
+private fun FloorPicker(
+    floors: List<MapFloor>,
+    selected: MapFloor?,
+    onSelect: (MapFloor) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val list = rememberLazyListState()
-    // A room opened from another tab can be on a floor further along the row
+    // A room opened from another tab can be on a floor further down the column
     LaunchedEffect(selected?.id) {
         val index = floors.asReversed().indexOfFirst { it.id == selected?.id }
         if (index >= 0) list.animateScrollToItem(index)
     }
-    LazyRow(
-        state = list,
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(floors.asReversed(), key = { it.id }) { floor ->
-            FilterChip(
-                selected = floor.id == selected?.id,
-                onClick = { onSelect(floor) },
-                label = { Text(floor.name) },
-            )
+    // Unselected chips are see-through, and the map runs underneath
+    Surface(modifier, shape = MaterialTheme.shapes.large, tonalElevation = 3.dp, shadowElevation = 3.dp) {
+        LazyColumn(
+            state = list,
+            contentPadding = PaddingValues(horizontal = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            items(floors.asReversed(), key = { it.id }) { floor ->
+                FilterChip(
+                    selected = floor.id == selected?.id,
+                    onClick = { onSelect(floor) },
+                    label = { Text(floor.name) },
+                )
+            }
         }
     }
 }

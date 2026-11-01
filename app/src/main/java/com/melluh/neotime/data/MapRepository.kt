@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.melluh.neotime.timeedit.MapBuilding
 import com.melluh.neotime.timeedit.MapFeature
 import com.melluh.neotime.timeedit.MapOverrides
@@ -64,12 +65,21 @@ class MapRepository(
 
     val lastSelection: Flow<MapSelection> = dataStore.data.map { MapSelection(it[LAST_BUILDING], it[LAST_FLOOR]) }
 
+    /** Building ids, latest first. */
+    val recentBuildings: Flow<List<Long>> = dataStore.data.map(::recentBuildings)
+
     suspend fun select(buildingId: Long, floorId: Long?) {
         dataStore.edit {
+            val recent = (listOf(buildingId) + recentBuildings(it)).distinct().take(RECENT_LIMIT)
+            it[RECENT_BUILDINGS] = recent.joinToString(",")
             it[LAST_BUILDING] = buildingId
             if (floorId != null) it[LAST_FLOOR] = floorId else it.remove(LAST_FLOOR)
         }
     }
+
+    // Installs from before this list was kept still know their last building
+    private fun recentBuildings(prefs: Preferences): List<Long> =
+        prefs[RECENT_BUILDINGS]?.split(',')?.mapNotNull { it.toLongOrNull() } ?: listOfNotNull(prefs[LAST_BUILDING])
 
     suspend fun buildings(): MapResult<List<MapBuilding>> {
         val result = cached("buildings.json", ListSerializer(MapBuilding.serializer())) { client.buildings() }
@@ -158,6 +168,8 @@ class MapRepository(
         // Ids from MazeMap; RoomRepository's room_building is a TimeEdit building name
         val LAST_BUILDING = longPreferencesKey("map_building_id")
         val LAST_FLOOR = longPreferencesKey("map_floor_id")
+        val RECENT_BUILDINGS = stringPreferencesKey("map_recent_building_ids")
+        const val RECENT_LIMIT = 3
         val MAX_AGE: Duration = Duration.ofDays(7)
         val LOCATION_MAX_AGE: Duration = Duration.ofDays(30)
         val MISSING_MAX_AGE: Duration = Duration.ofDays(7)
