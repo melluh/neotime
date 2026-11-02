@@ -7,11 +7,14 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.melluh.neotime.timeedit.MapBuilding
 import com.melluh.neotime.timeedit.MapFeature
+import com.melluh.neotime.timeedit.MapFloor
 import com.melluh.neotime.timeedit.MapOverrides
 import com.melluh.neotime.timeedit.MazeMapClient
 import com.melluh.neotime.timeedit.MazeMapException
 import com.melluh.neotime.timeedit.RoomLocation
 import com.melluh.neotime.timeedit.RoomNames
+import com.melluh.neotime.timeedit.StairLinks
+import com.melluh.neotime.timeedit.stairLinks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -119,6 +122,23 @@ class MapRepository(
         val result = cached("floor-$floorId.json", ListSerializer(MapFeature.serializer())) { client.floorFeatures(floorId) }
         if (result !is MapResult.Ok) return result
         return result.copy(value = overrides().applyToFeatures(result.value))
+    }
+
+    /**
+     * Which ways the stairs in [features], the ones on [floor], go. That takes the floors around it
+     * as well, and without those there's no telling: stairs would look like they end right there.
+     */
+    suspend fun stairLinks(building: MapBuilding, floor: MapFloor, features: List<MapFeature>): Map<Long, StairLinks> {
+        if (features.none { it.isStairs }) return emptyMap()
+        val index = building.floors.indexOfFirst { it.id == floor.id }
+        val around = listOf(index + 1, index - 1).map { neighbour ->
+            val other = building.floors.getOrNull(neighbour) ?: return@map emptyList()
+            when (val result = floorFeatures(other.id)) {
+                is MapResult.Ok -> result.value
+                is MapResult.Failed -> return emptyMap()
+            }
+        }
+        return withContext(Dispatchers.Default) { stairLinks(features, above = around[0], below = around[1]) }
     }
 
     /**

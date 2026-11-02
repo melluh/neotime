@@ -64,6 +64,9 @@ data class MapFeature(
     val rings: Rings? = null,
     val labelPoint: GeoPoint? = null,
 ) {
+    val isStairs: Boolean
+        get() = kind == "stairs" || "Stairs" in typeNames
+
     /**
      * Whether this is somewhere you'd go on purpose, like a lecture hall, office or project room.
      * Most of those have no type in MazeMap, so this rules out the rest instead of picking them.
@@ -73,9 +76,13 @@ data class MapFeature(
             typeNames.none { type -> type in BACKGROUND_TYPES || type.startsWith("Toilet") } &&
             !CORRIDOR_CODE.matches(title)
 
-    /** What to call this on the map, if anything. */
+    /** What to call this, if anything. */
     val label: String?
         get() = title?.takeIf { isDestination }?.removePrefix(LECTURE_HALL_PREFIX)
+
+    /** What to write on the map itself: a reception has a name, but isn't where anyone's headed. */
+    val drawnLabel: String?
+        get() = label?.takeUnless { "Reception" in typeNames }
 }
 
 /** Where a room is, enough to open its floor and point it out. */

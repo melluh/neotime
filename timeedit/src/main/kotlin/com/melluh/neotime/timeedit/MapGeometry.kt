@@ -19,6 +19,11 @@ private const val MIN_PART_PERIMETER_METRES = 1.0
 
 private const val SAME_POINT_METRES = 0.05
 
+/** Stairs barely ever half overlap: it's nearly all or nothing, with this well below the all. */
+private const val MIN_STAIR_OVERLAP = 0.25
+
+private const val OVERLAP_SAMPLES = 10
+
 /** About 11° off exactly opposite. */
 private const val MAX_OPPOSITE_COS = -0.98
 
@@ -118,6 +123,54 @@ fun Rings.withoutBridges(): Rings {
     // A ring that doesn't close would be drawn with a line right across the map, which is far
     // worse than the bridge. Nothing does this today, but the data isn't ours.
     return if (rings.all { distance(it.first(), it.last()) <= MAX_MOUTH_WIDTH_METRES }) rings else unfolded
+}
+
+/** Which ways a flight of stairs goes from its floor. */
+data class StairLinks(val up: Boolean, val down: Boolean)
+
+/**
+ * Where the stairs on a floor lead, by feature id. MazeMap doesn't say, but a stairwell is in the
+ * same place on every floor it reaches. Stairs that match neither [above] nor [below] aren't in
+ * the result: those are mostly the steps in a lecture hall, which don't go anywhere.
+ */
+fun stairLinks(floor: List<MapFeature>, above: List<MapFeature>, below: List<MapFeature>): Map<Long, StairLinks> {
+    fun rings(features: List<MapFeature>) = features.filter { it.isStairs }.mapNotNull { it.rings }
+
+    val aboveStairs = rings(above)
+    val belowStairs = rings(below)
+    return floor.filter { it.isStairs }.mapNotNull { stairs ->
+        val rings = stairs.rings ?: return@mapNotNull null
+        val links = StairLinks(
+            up = aboveStairs.any { rings.overlapWith(it) >= MIN_STAIR_OVERLAP },
+            down = belowStairs.any { rings.overlapWith(it) >= MIN_STAIR_OVERLAP },
+        )
+        (stairs.id to links).takeIf { links.up || links.down }
+    }.toMap()
+}
+
+/** About how much of this is also inside [other], from 0 to 1. */
+private fun Rings.overlapWith(other: Rings): Double {
+    val points = flatten()
+    if (points.isEmpty()) return 0.0
+    val west = points.minOf { it.lon }
+    val east = points.maxOf { it.lon }
+    val south = points.minOf { it.lat }
+    val north = points.maxOf { it.lat }
+    var inside = 0
+    var shared = 0
+    for (x in 0 until OVERLAP_SAMPLES) {
+        for (y in 0 until OVERLAP_SAMPLES) {
+            val sample = GeoPoint(
+                lon = west + (east - west) * (x + 0.5) / OVERLAP_SAMPLES,
+                lat = south + (north - south) * (y + 0.5) / OVERLAP_SAMPLES,
+            )
+            if (sample in this) {
+                inside++
+                if (sample in other) shared++
+            }
+        }
+    }
+    return if (inside > 0) shared.toDouble() / inside else 0.0
 }
 
 /** A stretch of wall, or of the seam where a wall would've been. */

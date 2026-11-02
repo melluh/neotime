@@ -3,6 +3,7 @@ package com.melluh.neotime.ui.map
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -33,9 +34,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
@@ -44,6 +47,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
+import com.melluh.neotime.R
 import com.melluh.neotime.timeedit.GeoPoint
 import com.melluh.neotime.timeedit.MapBuilding
 import com.melluh.neotime.timeedit.MapEntrance
@@ -51,6 +55,7 @@ import com.melluh.neotime.timeedit.MapFeature
 import com.melluh.neotime.timeedit.MapFloor
 import com.melluh.neotime.timeedit.MapProjection
 import com.melluh.neotime.timeedit.Rings
+import com.melluh.neotime.timeedit.StairLinks
 import com.melluh.neotime.timeedit.WallLine
 import com.melluh.neotime.timeedit.contains
 import com.melluh.neotime.timeedit.joinShapes
@@ -78,10 +83,11 @@ private const val ENTRANCE_ICON_SCALE = 0.7f
 private const val ENTRANCE_REACH_DP = 24
 
 /** Declared in drawing order; hallways and areas overlap the rooms on top of them. */
-private enum class Layer { AREA, HALLWAY, ROOM, LECTURE_HALL, TOILET, STAIRS_AND_LIFTS }
+private enum class Layer { AREA, HALLWAY, ROOM, LECTURE_HALL, TOILET, LIFT, STAIRS }
 
 private fun layerOf(feature: MapFeature): Layer = when {
-    feature.kind == "stairs" || feature.kind == "elevator" || "Elevators" in feature.typeNames -> Layer.STAIRS_AND_LIFTS
+    feature.kind == "elevator" || "Elevators" in feature.typeNames -> Layer.LIFT
+    feature.isStairs -> Layer.STAIRS
     feature.typeNames.any { it.startsWith("Toilet") } -> Layer.TOILET
     "Lecture Hall" in feature.typeNames -> Layer.LECTURE_HALL
     feature.kind == "circulation_room" || "Hallway" in feature.typeNames -> Layer.HALLWAY
@@ -209,6 +215,7 @@ fun FloorCanvas(
     features: List<MapFeature>,
     viewport: MapViewport,
     bookable: Set<Long>,
+    stairLinks: Map<Long, StairLinks>,
     focused: Long?,
     focusKey: Any?,
     onTap: (MapFeature) -> Unit,
@@ -240,18 +247,34 @@ fun FloorCanvas(
     }
 
     val colors = MaterialTheme.colorScheme
-    val fills = remember(colors) {
+    val dark = isSystemInDarkTheme()
+    val fills = remember(colors, dark) {
         mapOf(
             Layer.AREA to colors.surfaceContainer,
-            Layer.HALLWAY to colors.surfaceContainerHighest,
+            Layer.HALLWAY to colors.surfaceContainerLowest,
             Layer.ROOM to colors.surfaceContainerHighest,
             Layer.LECTURE_HALL to colors.primaryContainer,
-            Layer.TOILET to colors.tertiaryContainer,
-            Layer.STAIRS_AND_LIFTS to colors.secondaryContainer,
+            Layer.TOILET to if (dark) TOILET_DARK else TOILET_LIGHT,
+            // Green whatever the theme: the way up or down is what you scan a floor for
+            Layer.LIFT to if (dark) VERTICAL_DARK else VERTICAL_LIGHT,
+            Layer.STAIRS to if (dark) VERTICAL_DARK else VERTICAL_LIGHT,
         )
     }
     val wall = colors.outline
     val accent = colors.primary
+    val icons = MapIcons(
+        stairs = painterResource(R.drawable.ic_map_stairs),
+        lift = painterResource(R.drawable.ic_map_lift),
+        up = painterResource(R.drawable.ic_map_up),
+        down = painterResource(R.drawable.ic_map_down),
+        upDown = painterResource(R.drawable.ic_map_up_down),
+        info = painterResource(R.drawable.ic_map_info),
+        toilet = painterResource(R.drawable.ic_map_toilet),
+        toiletMen = painterResource(R.drawable.ic_map_toilet_men),
+        toiletWomen = painterResource(R.drawable.ic_map_toilet_women),
+        toiletAccessible = painterResource(R.drawable.ic_map_toilet_accessible),
+    )
+    val iconTint = colors.onSurface
     val entranceIcon = rememberVectorPainter(Icons.AutoMirrored.Filled.ExitToApp)
     val directionIcon = rememberVectorPainter(Icons.AutoMirrored.Filled.ArrowForward)
     val onAccent = colors.onPrimary
@@ -346,6 +369,8 @@ fun FloorCanvas(
             labels.getOrPut(text) { measurer.measure(text, labelStyle) }
         }
 
+        drawFloorIcons(geometry, stairLinks, scale, Offset(originX, originY), icons, iconTint)
+
         // Out here too, so that a door doesn't grow into the size of a room when zoomed in
         entrances.forEach { (entrance, at) ->
             val diameter = ENTRANCE_DP.dp.toPx()
@@ -396,7 +421,7 @@ private fun fitScale(frame: BuildingFrame, size: Size): Float =
 /** Outside the map's transform, so that text keeps its size; shown once it fits its room. */
 private fun DrawScope.drawLabels(geometry: FloorGeometry, scale: Float, origin: Offset, measure: (String) -> TextLayoutResult) {
     geometry.shapes.forEach { shape ->
-        val text = shape.label ?: return@forEach
+        val text = shape.feature.drawnLabel ?: return@forEach
         val at = shape.labelAt ?: return@forEach
         val room = shape.side * scale
         if (room < MIN_LABEL_ROOM_DP * density) return@forEach
@@ -409,5 +434,70 @@ private fun DrawScope.drawLabels(geometry: FloorGeometry, scale: Float, origin: 
     }
 }
 
+private class MapIcons(
+    val stairs: Painter,
+    val lift: Painter,
+    val up: Painter,
+    val down: Painter,
+    val upDown: Painter,
+    val info: Painter,
+    val toilet: Painter,
+    val toiletMen: Painter,
+    val toiletWomen: Painter,
+    val toiletAccessible: Painter,
+) {
+    /** Most important first, so that the arrow's what gives way in a tight spot. */
+    fun of(shape: Shape, links: Map<Long, StairLinks>): List<Painter> = when {
+        "Reception" in shape.feature.typeNames -> listOf(info)
+        shape.layer == Layer.LIFT -> listOf(lift)
+        shape.layer == Layer.STAIRS -> listOfNotNull(stairs, links[shape.feature.id]?.let(::arrow))
+        shape.layer == Layer.TOILET -> listOf(toiletOf(shape.feature))
+        else -> emptyList()
+    }
+
+    private fun toiletOf(feature: MapFeature): Painter = when {
+        "Toilet - Male" in feature.typeNames -> toiletMen
+        "Toilet - Female" in feature.typeNames -> toiletWomen
+        "Toilet - Accessible" in feature.typeNames -> toiletAccessible
+        else -> toilet
+    }
+
+    private fun arrow(link: StairLinks): Painter = when {
+        link.up && link.down -> upDown
+        link.up -> up
+        else -> down
+    }
+}
+
+/** Like labels, these keep their size and only show once they fit. */
+private fun DrawScope.drawFloorIcons(
+    geometry: FloorGeometry,
+    links: Map<Long, StairLinks>,
+    scale: Float,
+    origin: Offset,
+    icons: MapIcons,
+    tint: Color,
+) {
+    val icon = FLOOR_ICON_DP.dp.toPx()
+    geometry.shapes.forEach { shape ->
+        val at = shape.labelAt ?: return@forEach
+        val fitting = icons.of(shape, links).take((shape.side * scale / icon).toInt())
+        val left = origin.x + at.x * scale - icon * fitting.size / 2
+        val top = origin.y + at.y * scale - icon / 2
+        fitting.forEachIndexed { index, painter ->
+            translate(left + icon * index, top) {
+                with(painter) { draw(Size(icon, icon), colorFilter = ColorFilter.tint(tint)) }
+            }
+        }
+    }
+}
+
 private const val MIN_LABEL_ROOM_DP = 16
+private const val FLOOR_ICON_DP = 18
+private val VERTICAL_LIGHT = Color(0xFF9AD9A8)
+private val VERTICAL_DARK = Color(0xFF2E6B45)
+
+/** Not the theme's blue, which is what lecture halls are. */
+private val TOILET_LIGHT = Color(0xFF8FCDF2)
+private val TOILET_DARK = Color(0xFF28618A)
 private const val NEEDLE_WIDTH = 0.4f

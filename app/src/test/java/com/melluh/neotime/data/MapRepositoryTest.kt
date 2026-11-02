@@ -4,11 +4,15 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import com.melluh.neotime.timeedit.GeoPoint
+import com.melluh.neotime.timeedit.MapBuilding
 import com.melluh.neotime.timeedit.MapEntrance
+import com.melluh.neotime.timeedit.MapFeature
+import com.melluh.neotime.timeedit.MapFloor
 import com.melluh.neotime.timeedit.MapOverrides
 import com.melluh.neotime.timeedit.MazeMapClient
 import com.melluh.neotime.timeedit.PoiOverride
 import com.melluh.neotime.timeedit.RoomLocation
+import com.melluh.neotime.timeedit.StairLinks
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
@@ -100,6 +104,45 @@ class MapRepositoryTest {
         repository.editOverrides { it.withPoi(5, PoiOverride(typeNames = listOf("Lecture Hall"))) }
         assertEquals(listOf("Lecture Hall"), (repository.floorFeatures(9) as MapResult.Ok).value.single().typeNames)
         assertEquals(1, server.requestCount)
+    }
+
+    private val stairsFloor = MockResponse().setBody(
+        """{"pois": [{"poiId": 8, "kind": "stairs", "geometry": {"type": "Polygon",
+            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]}}], "limit": 2000}""",
+    )
+    private val stairs = MapFeature(5, "stairs", rings = listOf(listOf(GeoPoint(0.0, 0.0), GeoPoint(1.0, 0.0), GeoPoint(1.0, 1.0), GeoPoint(0.0, 1.0))))
+    private val floors = listOf(MapFloor(1, "1", 1.0), MapFloor(2, "2", 2.0), MapFloor(3, "3", 3.0))
+    private val building = MapBuilding(9, "Ravelijn", floors)
+
+    @Test
+    fun `stairs are matched with the floors above and below`() = runTest {
+        server.enqueue(stairsFloor)
+        server.enqueue(stairsFloor)
+        val links = repository().stairLinks(building, floors[1], listOf(stairs))
+        assertEquals(mapOf(5L to StairLinks(up = true, down = true)), links)
+        assertEquals("3", server.takeRequest().requestUrl!!.queryParameter("floorid"))
+        assertEquals("1", server.takeRequest().requestUrl!!.queryParameter("floorid"))
+    }
+
+    @Test
+    fun `the top floor has nothing above it to ask for`() = runTest {
+        server.enqueue(stairsFloor)
+        val links = repository().stairLinks(building, floors[2], listOf(stairs))
+        assertEquals(mapOf(5L to StairLinks(up = false, down = true)), links)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `without a floor to compare with, nothing is said about stairs`() = runTest {
+        server.enqueue(stairsFloor)
+        server.enqueue(MockResponse().setResponseCode(500))
+        assertEquals(emptyMap<Long, StairLinks>(), repository().stairLinks(building, floors[1], listOf(stairs)))
+    }
+
+    @Test
+    fun `a floor without stairs doesn't fetch the ones around it`() = runTest {
+        assertEquals(emptyMap<Long, StairLinks>(), repository().stairLinks(building, floors[1], emptyList()))
+        assertEquals(0, server.requestCount)
     }
 
     @Test

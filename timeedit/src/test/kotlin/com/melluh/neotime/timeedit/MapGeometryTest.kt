@@ -68,6 +68,37 @@ class MapGeometryTest {
         }
     }
 
+    private fun stairs(id: Long, left: Double) = MapFeature(id, "stairs", rings = square(left, 4.0))
+
+    @Test
+    fun `stairs lead to wherever the same stairwell is`() {
+        val links = stairLinks(listOf(stairs(1, 0.0)), above = listOf(stairs(2, 0.0)), below = listOf(stairs(3, 0.0)))
+        assertEquals(mapOf(1L to StairLinks(up = true, down = true)), links)
+    }
+
+    @Test
+    fun `stairs that stop at a floor only go the other way`() {
+        val links = stairLinks(listOf(stairs(1, 0.0)), above = emptyList(), below = listOf(stairs(3, 0.0)))
+        assertEquals(mapOf(1L to StairLinks(up = false, down = true)), links)
+    }
+
+    @Test
+    fun `stairs elsewhere on the next floor aren't these stairs`() {
+        assertTrue(stairLinks(listOf(stairs(1, 0.0)), above = listOf(stairs(2, 50.0)), below = emptyList()).isEmpty())
+    }
+
+    @Test
+    fun `only stairs count as a way through`() {
+        val room = MapFeature(2, "room", rings = square(0.0, 4.0))
+        assertTrue(stairLinks(listOf(stairs(1, 0.0)), above = listOf(room), below = emptyList()).isEmpty())
+    }
+
+    @Test
+    fun `a room typed as stairs is stairs`() {
+        val typed = MapFeature(1, "room", typeNames = listOf("Stairs", "Hallway"), rings = square(0.0, 4.0))
+        assertEquals(setOf(1L), stairLinks(listOf(typed), above = listOf(stairs(2, 0.0)), below = emptyList()).keys)
+    }
+
     private fun metres(lines: List<WallLine>) =
         lines.sumOf { (a, b) -> hypot((b.lon - a.lon) * metresPerLon, (b.lat - a.lat) * 110_540.0) }
 

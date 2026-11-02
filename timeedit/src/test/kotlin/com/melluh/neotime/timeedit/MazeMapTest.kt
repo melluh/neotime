@@ -111,6 +111,14 @@ class MazeMapTest {
     }
 
     @Test
+    fun `a reception keeps its name but isn't written on the map`() {
+        val reception = feature("Servicedesk", "room", "Reception")
+        assertEquals("Servicedesk", reception.label)
+        assertNull(reception.drawnLabel)
+        assertEquals("4244", feature("4244").drawnLabel)
+    }
+
+    @Test
     fun `lecture halls are labelled without the Collegezaal in front`() {
         assertEquals("WA1", feature("Collegezaal WA1", "room", "Lecture Hall").label)
         assertEquals("2234", feature("Collegezaal 2234", "room", "Lecture Hall").label)

@@ -62,6 +62,7 @@ import com.melluh.neotime.timeedit.MapOverrides
 import com.melluh.neotime.timeedit.PoiOverride
 import com.melluh.neotime.timeedit.Room
 import com.melluh.neotime.timeedit.RoomLocation
+import com.melluh.neotime.timeedit.StairLinks
 import com.melluh.neotime.timeedit.TIMEEDIT_ZONE
 import com.melluh.neotime.ui.AccountChip
 import com.melluh.neotime.ui.rooms.AvailabilityBar
@@ -96,6 +97,7 @@ data class MapUiState(
     val error: String? = null,
     val focus: MapFocus? = null,
     val bookable: Map<String, Room> = emptyMap(),
+    val stairLinks: Map<Long, StairLinks> = emptyMap(),
 )
 
 /** [result] is how [room]'s day looks as of [now]. */
@@ -181,6 +183,7 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
                 building = shown,
                 floor = floor,
                 features = if (it.floor?.id == floor?.id) it.features else emptyList(),
+                stairLinks = if (it.floor?.id == floor?.id) it.stairLinks else emptyMap(),
                 stale = buildingsStale,
             )
         }
@@ -190,8 +193,13 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
         }
         if (selection != null && shown != null) container.maps.select(shown.id, floor.id)
         when (val result = container.maps.floorFeatures(floor.id)) {
-            is MapResult.Ok -> _state.update {
-                it.copy(loading = false, features = result.value, stale = buildingsStale || result.stale)
+            is MapResult.Ok -> {
+                _state.update { it.copy(loading = false, features = result.value, stale = buildingsStale || result.stale) }
+                // After the floor's up, since this can mean fetching the ones around it
+                if (shown != null) {
+                    val links = container.maps.stairLinks(shown, floor, result.value)
+                    _state.update { it.copy(stairLinks = links) }
+                }
             }
             is MapResult.Failed -> _state.update { it.copy(loading = false, error = result.message) }
         }
@@ -315,6 +323,7 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
                             state.features,
                             viewport,
                             bookable = bookable,
+                            stairLinks = state.stairLinks,
                             focused = state.focus?.poiId,
                             focusKey = state.focus,
                             onTap = { if (editing) editingRoom = it else tapped = it },
