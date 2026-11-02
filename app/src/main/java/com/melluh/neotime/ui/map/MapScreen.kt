@@ -472,7 +472,7 @@ private fun RoomToday(day: RoomDay?) {
         )
         if (status != null || result == null) TimeAxis()
         when {
-            status != null -> AvailabilityBar(status, window = null, past = day.now.toLocalTime())
+            status != null -> AvailabilityBar(status, window = null, past = null, now = day.now.toLocalTime())
             // Keeps the sheet from jumping when the bar arrives
             result == null -> Spacer(Modifier.height(BAR_HEIGHT))
         }

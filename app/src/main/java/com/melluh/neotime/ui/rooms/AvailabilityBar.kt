@@ -39,11 +39,25 @@ internal val BAR_HEIGHT = 20.dp
 
 private val AXIS_HOURS = listOf(8, 12, 16, 20)
 
-private data class BarColors(val free: Color, val blocked: Color, val past: Color, val window: Color)
+private data class BarColors(
+    val free: Color,
+    val blocked: Color,
+    val past: Color,
+    val window: Color,
+    val now: Color,
+    val dimmed: Color,
+)
 
 @Composable
 private fun barColors() = MaterialTheme.colorScheme.run {
-    BarColors(free = primaryContainer, blocked = onSurfaceVariant, past = onSurface.copy(alpha = 0.08f), window = primary)
+    BarColors(
+        free = primaryContainer,
+        blocked = onSurfaceVariant,
+        past = onSurface.copy(alpha = 0.08f),
+        window = primary,
+        now = error,
+        dimmed = surface.copy(alpha = 0.5f),
+    )
 }
 
 /** Where [time] falls between opening and closing, from 0 to 1. */
@@ -56,9 +70,16 @@ private fun position(time: LocalTime): Float {
 /**
  * A room's bookable day from left to right, with reservations blocked out.
  * [past] greys out what's gone today; [window] outlines the time being looked for.
+ * [now] marks the time of day instead, keeping what's gone readable but dimmed.
  */
 @Composable
-fun AvailabilityBar(status: RoomStatus, window: TimeRange?, past: LocalTime?, modifier: Modifier = Modifier) {
+fun AvailabilityBar(
+    status: RoomStatus,
+    window: TimeRange?,
+    past: LocalTime?,
+    modifier: Modifier = Modifier,
+    now: LocalTime? = null,
+) {
     val colors = barColors()
     val description = when {
         status.free.isEmpty() -> "Fully booked"
@@ -84,6 +105,13 @@ fun AvailabilityBar(status: RoomStatus, window: TimeRange?, past: LocalTime?, mo
                 val to = position(it.end)
                 if (to > from) span(from, to, colors.blocked)
             }
+            now?.let { span(0f, position(it), colors.dimmed) }
+        }
+        // Before opening or after closing, the bar's ends would pass for the time it is
+        now?.takeIf { it in Availability.OPEN..Availability.CLOSE }?.let {
+            val x = position(it) * size.width
+            drawLine(colors.now, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2.dp.toPx())
+            drawCircle(colors.now, radius = 3.dp.toPx(), center = Offset(x, 3.dp.toPx()))
         }
         window?.let {
             val stroke = 2.dp.toPx()

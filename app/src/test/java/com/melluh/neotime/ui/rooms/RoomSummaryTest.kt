@@ -47,21 +47,17 @@ class RoomSummaryTest {
     }
 
     @Test
-    fun `free soon for the rest of the day`() {
-        assertEquals(RoomSummary("Free in 15 min", false), summary("14:00", range("13:00", "14:15")))
+    fun `free later for the rest of the day`() {
+        assertEquals(RoomSummary("Free from 14:15", false), summary("14:00", range("13:00", "14:15")))
+        assertEquals(RoomSummary("Free from 18:00", false), summary("14:00", range("13:00", "18:00")))
     }
 
     @Test
-    fun `free soon until a later reservation`() {
+    fun `free later until another reservation`() {
         assertEquals(
-            RoomSummary("Free in 15 min, until 17:00", false),
+            RoomSummary("Free from 14:15 - 17:00", false),
             summary("14:00", range("13:00", "14:15"), range("17:00", "18:00")),
         )
-    }
-
-    @Test
-    fun `an hour or more away uses the time`() {
-        assertEquals(RoomSummary("Free from 15:00", false), summary("14:00", range("13:00", "15:00")))
         assertEquals(
             RoomSummary("Free from 15:00 - 17:00", false),
             summary("14:00", range("13:00", "15:00"), range("17:00", "18:00")),
@@ -69,23 +65,32 @@ class RoomSummaryTest {
     }
 
     @Test
-    fun `just under an hour away still counts down`() {
-        assertEquals(RoomSummary("Free in 59 min", false), summary("14:01", range("13:00", "15:00")))
-    }
-
-    @Test
-    fun `a partly gone minute is rounded up`() {
-        assertEquals(RoomSummary("Free in 1 min", false), summary("14:14:30", range("13:00", "14:15")))
-    }
-
-    @Test
     fun `the gap before a reservation that's too short to book isn't free`() {
-        assertEquals(RoomSummary("Free in 53 min", false), summary("14:07", range("14:15", "15:00")))
+        assertEquals(RoomSummary("Free from 15:00", false), summary("14:07", range("14:15", "15:00")))
+    }
+
+    @Test
+    fun `a gap of 15 minutes is skipped`() {
+        assertEquals(RoomSummary("Free from 17:00", false), summary("14:00", range("14:15", "17:00")))
+        assertEquals(
+            RoomSummary("Free from 17:00", false),
+            summary("14:00", range("13:00", "14:30"), range("14:45", "17:00")),
+        )
+    }
+
+    @Test
+    fun `a gap of more than 15 minutes counts`() {
+        assertEquals(RoomSummary("Free until 14:20", true), summary("14:00", range("14:20", "17:00")))
+    }
+
+    @Test
+    fun `only 15 minutes left is fully booked`() {
+        assertEquals(RoomSummary("Fully booked today", false), summary("14:00", range("08:00", "14:15"), range("14:30", "23:00")))
     }
 
     @Test
     fun `not free before opening`() {
-        assertEquals(RoomSummary("Free in 10 min", false), summary("07:50"))
+        assertEquals(RoomSummary("Free from 08:00", false), summary("07:50"))
         assertEquals(RoomSummary("Free from 08:00", false), summary("06:00"))
     }
 
