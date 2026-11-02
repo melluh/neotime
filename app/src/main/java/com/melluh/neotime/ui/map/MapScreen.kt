@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -50,6 +52,7 @@ import com.melluh.neotime.AppContainer
 import com.melluh.neotime.auth.SessionState
 import com.melluh.neotime.data.MapResult
 import com.melluh.neotime.data.MapSelection
+import com.melluh.neotime.data.RoomsResult
 import com.melluh.neotime.timeedit.GeoPoint
 import com.melluh.neotime.timeedit.MapBuilding
 import com.melluh.neotime.timeedit.MapEntrance
@@ -59,7 +62,14 @@ import com.melluh.neotime.timeedit.MapOverrides
 import com.melluh.neotime.timeedit.PoiOverride
 import com.melluh.neotime.timeedit.Room
 import com.melluh.neotime.timeedit.RoomLocation
+import com.melluh.neotime.timeedit.TIMEEDIT_ZONE
 import com.melluh.neotime.ui.AccountChip
+import com.melluh.neotime.ui.rooms.AvailabilityBar
+import com.melluh.neotime.ui.rooms.BAR_HEIGHT
+import com.melluh.neotime.ui.rooms.TimeAxis
+import com.melluh.neotime.ui.rooms.freeNowColor
+import com.melluh.neotime.ui.rooms.roomSummary
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -70,6 +80,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 
 /** A room to point out. Not a data class: asking for the same room again should move there again. */
 class MapFocus(val poiId: Long)
@@ -87,9 +98,16 @@ data class MapUiState(
     val bookable: Map<String, Room> = emptyMap(),
 )
 
+/** [result] is how [room]'s day looks as of [now]. */
+data class RoomDay(val room: Room, val now: LocalDateTime, val result: RoomsResult)
+
 class MapViewModel(private val container: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow(MapUiState())
     val state: StateFlow<MapUiState> = _state
+
+    private val watched = MutableStateFlow<Room?>(null)
+    private val _roomDay = MutableStateFlow<RoomDay?>(null)
+    val roomDay: StateFlow<RoomDay?> = _roomDay
 
     /** What the user picked here; null means restore the last session's pick. */
     private val picked = MutableStateFlow<MapSelection?>(null)
@@ -116,6 +134,16 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
                     val bookable = container.rooms.bookableByIdentifier()
                     _state.update { it.copy(bookable = bookable) }
                 }
+        }
+        viewModelScope.launch {
+            watched.collectLatest { room ->
+                // What's free depends on the clock, so a room left open has to keep up with it
+                while (room != null) {
+                    val now = LocalDateTime.now(TIMEEDIT_ZONE)
+                    _roomDay.value = RoomDay(room, now, container.rooms.availability(room, now.toLocalDate(), now))
+                    delay(ROOM_REFRESH_MS)
+                }
+            }
         }
     }
 
@@ -215,6 +243,15 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
             reload.value++
         }
     }
+
+    /** Keeps [roomDay] current for [room], until this is called with another room or null. */
+    fun watchRoom(room: Room?) {
+        watched.value = room
+    }
+
+    private companion object {
+        const val ROOM_REFRESH_MS = 60_000L
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -222,6 +259,7 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
 fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: () -> Unit) {
     val vm = viewModel { MapViewModel(container) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val roomDay by vm.roomDay.collectAsStateWithLifecycle()
     val session by container.session.state.collectAsStateWithLifecycle()
 
     // Up here because the canvas goes away while a floor loads, and the view has to outlast that
@@ -335,10 +373,18 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
         )
     }
 
+    val tappedRoom = tapped?.let { state.bookable[it.identifier] }
+    LifecycleResumeEffect(vm, tappedRoom) {
+        vm.watchRoom(tappedRoom)
+        onPauseOrDispose { vm.watchRoom(null) }
+    }
+
     tapped?.let { feature ->
         RoomSheet(
             feature,
-            room = state.bookable[feature.identifier],
+            room = tappedRoom,
+            // Can briefly still be the room that was open before this one
+            day = roomDay?.takeIf { it.room == tappedRoom },
             onViewInRooms = { room ->
                 tapped = null
                 container.focus.showInRooms(room)
@@ -381,7 +427,7 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RoomSheet(feature: MapFeature, room: Room?, onViewInRooms: (Room) -> Unit, onDismiss: () -> Unit) {
+private fun RoomSheet(feature: MapFeature, room: Room?, day: RoomDay?, onViewInRooms: (Room) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(room?.name ?: feature.label.orEmpty(), style = MaterialTheme.typography.titleLarge)
@@ -391,8 +437,35 @@ private fun RoomSheet(feature: MapFeature, room: Room?, onViewInRooms: (Room) ->
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                RoomToday(day)
                 Button(onClick = { onViewInRooms(room) }) { Text("View in Rooms") }
             }
+        }
+    }
+}
+
+/** How the room's day looks. Null [day] means it's still loading. */
+@Composable
+private fun RoomToday(day: RoomDay?) {
+    val result = day?.result
+    val status = (result as? RoomsResult.Ok)?.rooms?.firstOrNull()
+    val summary = status?.let { roomSummary(it, day.now.toLocalTime()) }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            when {
+                summary != null -> summary.text
+                result is RoomsResult.Failed -> result.message
+                result != null -> "Log in to see availability"
+                else -> "Checking availability…"
+            },
+            style = MaterialTheme.typography.titleMedium,
+            color = if (summary?.freeNow == true) freeNowColor() else MaterialTheme.colorScheme.onSurface,
+        )
+        if (status != null || result == null) TimeAxis()
+        when {
+            status != null -> AvailabilityBar(status, window = null, past = day.now.toLocalTime())
+            // Keeps the sheet from jumping when the bar arrives
+            result == null -> Spacer(Modifier.height(BAR_HEIGHT))
         }
     }
 }

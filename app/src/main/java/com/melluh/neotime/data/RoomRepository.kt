@@ -93,7 +93,14 @@ class RoomRepository(
     }
 
     /** Time on [date] for the rooms in [building], plus all favorites wherever they are. */
-    suspend fun availability(building: String, date: LocalDate, now: LocalDateTime): RoomsResult {
+    suspend fun availability(building: String, date: LocalDate, now: LocalDateTime): RoomsResult =
+        statuses(date, now) { (rooms(building) + favorites.first()).distinctBy { it.id } }
+
+    /** Time on [date] for just [room]. */
+    suspend fun availability(room: Room, date: LocalDate, now: LocalDateTime): RoomsResult =
+        statuses(date, now) { listOf(room) }
+
+    private suspend fun statuses(date: LocalDate, now: LocalDateTime, rooms: suspend () -> List<Room>): RoomsResult {
         // Goes through the session manager so any renewal shows in the banner
         if (!session.ensureSession()) {
             return when (session.state.value) {
@@ -102,13 +109,13 @@ class RoomRepository(
             }
         }
         return try {
-            val rooms = (rooms(building) + favorites.first()).distinctBy { it.id }
+            val wanted = rooms()
             val sid = (schedule.views(Area.STUDENT).rooms(Area.STUDENT) ?: Views.FALLBACK.rooms(Area.STUDENT))!!.sid
             // The booking view's sid has no Hall column, so occupancy comes from the room viewer
-            val events = client.schedule(Area.STUDENT, sid, date, date, rooms.map { it.id })
-            val busy = Availability.busyByRoom(events, rooms, date)
+            val events = client.schedule(Area.STUDENT, sid, date, date, wanted.map { it.id })
+            val busy = Availability.busyByRoom(events, wanted, date)
             RoomsResult.Ok(
-                rooms.map { room ->
+                wanted.map { room ->
                     val periods = busy[room.id].orEmpty()
                     RoomStatus(room, Availability.freeRanges(periods, date, now), Availability.blocked(periods))
                 },

@@ -35,7 +35,7 @@ import com.melluh.neotime.timeedit.TimeRange
 import java.time.LocalTime
 
 private val TRACK = 12.dp
-private val BAR = 20.dp
+internal val BAR_HEIGHT = 20.dp
 
 private val AXIS_HOURS = listOf(8, 12, 16, 20)
 
@@ -64,7 +64,7 @@ fun AvailabilityBar(status: RoomStatus, window: TimeRange?, past: LocalTime?, mo
         status.free.isEmpty() -> "Fully booked"
         else -> "Free " + status.free.joinToString(", ", transform = ::rangeLabel)
     }
-    Canvas(modifier.fillMaxWidth().height(BAR).semantics { contentDescription = description }) {
+    Canvas(modifier.fillMaxWidth().height(BAR_HEIGHT).semantics { contentDescription = description }) {
         val top = (size.height - TRACK.toPx()) / 2
         val corner = CornerRadius(4.dp.toPx())
         val track = Path().apply {
