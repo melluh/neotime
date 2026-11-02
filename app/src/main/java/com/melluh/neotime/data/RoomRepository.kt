@@ -96,9 +96,9 @@ class RoomRepository(
     suspend fun availability(building: String, date: LocalDate, now: LocalDateTime): RoomsResult =
         statuses(date, now) { (rooms(building) + favorites.first()).distinctBy { it.id } }
 
-    /** Time on [date] for just [room]. */
-    suspend fun availability(room: Room, date: LocalDate, now: LocalDateTime): RoomsResult =
-        statuses(date, now) { listOf(room) }
+    /** Time on [date] for just these [rooms]. */
+    suspend fun availability(rooms: List<Room>, date: LocalDate, now: LocalDateTime): RoomsResult =
+        statuses(date, now) { rooms }
 
     private suspend fun statuses(date: LocalDate, now: LocalDateTime, rooms: suspend () -> List<Room>): RoomsResult {
         // Goes through the session manager so any renewal shows in the banner

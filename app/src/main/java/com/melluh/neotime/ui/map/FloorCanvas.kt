@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
@@ -60,6 +62,7 @@ import com.melluh.neotime.timeedit.WallLine
 import com.melluh.neotime.timeedit.contains
 import com.melluh.neotime.timeedit.joinShapes
 import com.melluh.neotime.timeedit.withoutBridges
+import com.melluh.neotime.ui.rooms.freeNowColor
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -71,6 +74,7 @@ private const val FOCUS_ZOOM = 5f
 
 /** Marks bookable rooms over whatever their layer draws them in. */
 private const val BOOKABLE_ALPHA = 0.25f
+private const val FREE_ALPHA = 0.45f
 private const val FOCUS_ALPHA = 0.6f
 
 /** Each side of a gap between hallways gets this, so together they cover the widest gap that's joined. */
@@ -94,6 +98,8 @@ private fun layerOf(feature: MapFeature): Layer = when {
     feature.kind == "generic" || feature.kind == "zone" -> Layer.AREA
     else -> Layer.ROOM
 }
+
+private class Chip(val background: Color, val text: Color)
 
 /** [side] is the side of a square of the same area, in metres: how much room a label has. */
 private class Shape(val feature: MapFeature, val layer: Layer, val path: Path, val side: Float, val labelAt: Offset?) {
@@ -204,9 +210,9 @@ private class FloorGeometry(
 class MapEditGestures(val onTapEntrance: (MapEntrance) -> Unit, val onLongPress: (GeoPoint) -> Unit)
 
 /**
- * A floor plan you can pan, pinch and tap. [bookable] marks features by id, and the view moves to
- * [focused] whenever that changes. [focusKey] can change to move there again. With [editing], every
- * room can be tapped instead of only the ones you'd go to.
+ * A floor plan you can pan, pinch and tap. [bookable] marks features by id, with those in [free]
+ * marked as free now. The view moves to [focused] whenever that changes, and [focusKey] can change
+ * to move there again. With [editing], every room can be tapped instead of only the ones you'd go to.
  */
 @Composable
 fun FloorCanvas(
@@ -216,6 +222,7 @@ fun FloorCanvas(
     viewport: MapViewport,
     bookable: Set<Long>,
     stairLinks: Map<Long, StairLinks>,
+    free: Set<Long>,
     focused: Long?,
     focusKey: Any?,
     onTap: (MapFeature) -> Unit,
@@ -278,6 +285,9 @@ fun FloorCanvas(
     val entranceIcon = rememberVectorPainter(Icons.AutoMirrored.Filled.ExitToApp)
     val directionIcon = rememberVectorPainter(Icons.AutoMirrored.Filled.ArrowForward)
     val onAccent = colors.onPrimary
+    val freeFill = freeNowColor()
+    val bookableChip = Chip(colors.primary, colors.onPrimary)
+    val freeChip = Chip(freeFill, if (freeFill.luminance() > 0.5f) Color(0xFF1B1B1F) else Color.White)
 
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = colors.onSurface)
@@ -340,7 +350,10 @@ fun FloorCanvas(
             val line = Stroke(width = 1.dp.toPx() / scale)
             fun fill(shape: Shape) {
                 drawPath(shape.path, fills.getValue(shape.layer))
-                if (shape.feature.id in bookable) drawPath(shape.path, accent.copy(alpha = BOOKABLE_ALPHA))
+                when (shape.feature.id) {
+                    in free -> drawPath(shape.path, freeFill.copy(alpha = FREE_ALPHA))
+                    in bookable -> drawPath(shape.path, accent.copy(alpha = BOOKABLE_ALPHA))
+                }
                 if (shape.feature.id == focused) drawPath(shape.path, accent.copy(alpha = FOCUS_ALPHA))
             }
 
@@ -365,7 +378,14 @@ fun FloorCanvas(
             geometry.outline?.let { drawPath(it, wall, style = line) }
         }
 
-        drawLabels(geometry, scale, Offset(originX, originY)) { text ->
+        val chipFor = { id: Long ->
+            when (id) {
+                in free -> freeChip
+                in bookable -> bookableChip
+                else -> null
+            }
+        }
+        drawLabels(geometry, scale, Offset(originX, originY), chipFor) { text ->
             labels.getOrPut(text) { measurer.measure(text, labelStyle) }
         }
 
@@ -418,9 +438,18 @@ fun NorthArrow(bearing: Double, modifier: Modifier = Modifier) {
 private fun fitScale(frame: BuildingFrame, size: Size): Float =
     min(size.width / frame.width, size.height / frame.height) * MARGIN
 
-/** Outside the map's transform, so that text keeps its size; shown once it fits its room. */
-private fun DrawScope.drawLabels(geometry: FloorGeometry, scale: Float, origin: Offset, measure: (String) -> TextLayoutResult) {
-    geometry.shapes.forEach { shape ->
+/**
+ * Outside the map's transform, so that text keeps its size; shown once it fits its room. [chipFor]
+ * picks out features to label with a chip, which go on top of the plain labels.
+ */
+private fun DrawScope.drawLabels(
+    geometry: FloorGeometry,
+    scale: Float,
+    origin: Offset,
+    chipFor: (Long) -> Chip?,
+    measure: (String) -> TextLayoutResult,
+) {
+    geometry.shapes.sortedBy { chipFor(it.feature.id) != null }.forEach { shape ->
         val text = shape.feature.drawnLabel ?: return@forEach
         val at = shape.labelAt ?: return@forEach
         val room = shape.side * scale
@@ -430,7 +459,18 @@ private fun DrawScope.drawLabels(geometry: FloorGeometry, scale: Float, origin: 
         if (x !in -room..size.width + room || y !in -room..size.height + room) return@forEach
         val layout = measure(text)
         if (layout.size.width > room) return@forEach
-        drawText(layout, topLeft = Offset(x - layout.size.width / 2f, y - layout.size.height / 2f))
+        val topLeft = Offset(x - layout.size.width / 2f, y - layout.size.height / 2f)
+        val chip = chipFor(shape.feature.id)
+        if (chip != null) {
+            val padding = Offset(CHIP_PADDING_X_DP * density, CHIP_PADDING_Y_DP * density)
+            drawRoundRect(
+                chip.background,
+                topLeft = topLeft - padding,
+                size = Size(layout.size.width + padding.x * 2, layout.size.height + padding.y * 2),
+                cornerRadius = CornerRadius(CHIP_CORNER_DP * density),
+            )
+        }
+        drawText(layout, color = chip?.text ?: Color.Unspecified, topLeft = topLeft)
     }
 }
 
@@ -494,6 +534,9 @@ private fun DrawScope.drawFloorIcons(
 
 private const val MIN_LABEL_ROOM_DP = 16
 private const val FLOOR_ICON_DP = 18
+private const val CHIP_PADDING_X_DP = 6
+private const val CHIP_PADDING_Y_DP = 2
+private const val CHIP_CORNER_DP = 6
 private val VERTICAL_LIGHT = Color(0xFF9AD9A8)
 private val VERTICAL_DARK = Color(0xFF2E6B45)
 

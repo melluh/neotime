@@ -86,7 +86,10 @@ import java.time.LocalDateTime
 /** A room to point out. Not a data class: asking for the same room again should move there again. */
 class MapFocus(val poiId: Long)
 
-/** [features] belong to [floor]. [bookable] holds project rooms by their MazeMap identifiers. */
+/**
+ * [features] belong to [floor]. [bookable] holds project rooms by their MazeMap identifiers, and
+ * [freeNow] has the ids of those on this floor that are free right now.
+ */
 data class MapUiState(
     val loading: Boolean = true,
     val buildings: List<MapBuilding> = emptyList(),
@@ -98,6 +101,7 @@ data class MapUiState(
     val focus: MapFocus? = null,
     val bookable: Map<String, Room> = emptyMap(),
     val stairLinks: Map<Long, StairLinks> = emptyMap(),
+    val freeNow: Set<String> = emptySet(),
 )
 
 /** [result] is how [room]'s day looks as of [now]. */
@@ -107,6 +111,7 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow(MapUiState())
     val state: StateFlow<MapUiState> = _state
 
+    private val visible = MutableStateFlow(false)
     private val watched = MutableStateFlow<Room?>(null)
     private val _roomDay = MutableStateFlow<RoomDay?>(null)
     val roomDay: StateFlow<RoomDay?> = _roomDay
@@ -142,10 +147,27 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
                 // What's free depends on the clock, so a room left open has to keep up with it
                 while (room != null) {
                     val now = LocalDateTime.now(TIMEEDIT_ZONE)
-                    _roomDay.value = RoomDay(room, now, container.rooms.availability(room, now.toLocalDate(), now))
+                    _roomDay.value = RoomDay(room, now, container.rooms.availability(listOf(room), now.toLocalDate(), now))
                     delay(ROOM_REFRESH_MS)
                 }
             }
+        }
+        viewModelScope.launch {
+            val floorRooms = _state
+                .map { state -> state.features.mapNotNull { state.bookable[it.identifier] }.distinct() }
+                .distinctUntilChanged()
+            combine(floorRooms, visible) { rooms, visible -> rooms.takeIf { visible }.orEmpty() }
+                .distinctUntilChanged()
+                .collectLatest { rooms ->
+                    while (rooms.isNotEmpty()) {
+                        val now = LocalDateTime.now(TIMEEDIT_ZONE)
+                        val result = container.rooms.availability(rooms, now.toLocalDate(), now)
+                        val free = (result as? RoomsResult.Ok)?.rooms.orEmpty()
+                            .filter { roomSummary(it, now.toLocalTime()).freeNow }
+                        _state.update { it.copy(freeNow = free.map { status -> status.room.id }.toSet()) }
+                        delay(ROOM_REFRESH_MS)
+                    }
+                }
         }
     }
 
@@ -252,6 +274,11 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /** Whether the map is on screen, which is what makes it worth keeping [MapUiState.freeNow] current. */
+    fun setVisible(visible: Boolean) {
+        this.visible.value = visible
+    }
+
     /** Keeps [roomDay] current for [room], until this is called with another room or null. */
     fun watchRoom(room: Room?) {
         watched.value = room
@@ -275,6 +302,14 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
     val bookable = remember(state.features, state.bookable) {
         state.features.filter { it.identifier in state.bookable }.map { it.id }.toSet()
     }
+    val free = remember(state.features, state.bookable, state.freeNow) {
+        state.features.filter { state.bookable[it.identifier]?.id in state.freeNow }.map { it.id }.toSet()
+    }
+    LifecycleResumeEffect(vm) {
+        vm.setVisible(true)
+        onPauseOrDispose { vm.setVisible(false) }
+    }
+
     var tapped by remember { mutableStateOf<MapFeature?>(null) }
     var pickingBuilding by remember { mutableStateOf(false) }
     val recentBuildings by container.maps.recentBuildings.collectAsStateWithLifecycle(emptyList())
@@ -324,6 +359,7 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
                             viewport,
                             bookable = bookable,
                             stairLinks = state.stairLinks,
+                            free = free,
                             focused = state.focus?.poiId,
                             focusKey = state.focus,
                             onTap = { if (editing) editingRoom = it else tapped = it },
