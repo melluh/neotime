@@ -14,9 +14,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -35,6 +37,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,9 +50,13 @@ import com.melluh.neotime.AppContainer
 import com.melluh.neotime.auth.SessionState
 import com.melluh.neotime.data.MapResult
 import com.melluh.neotime.data.MapSelection
+import com.melluh.neotime.timeedit.GeoPoint
 import com.melluh.neotime.timeedit.MapBuilding
+import com.melluh.neotime.timeedit.MapEntrance
 import com.melluh.neotime.timeedit.MapFeature
 import com.melluh.neotime.timeedit.MapFloor
+import com.melluh.neotime.timeedit.MapOverrides
+import com.melluh.neotime.timeedit.PoiOverride
 import com.melluh.neotime.timeedit.Room
 import com.melluh.neotime.timeedit.RoomLocation
 import com.melluh.neotime.ui.AccountChip
@@ -174,6 +182,39 @@ class MapViewModel(private val container: AppContainer) : ViewModel() {
     fun retry() {
         reload.value++
     }
+
+    val canEdit: Boolean get() = container.maps.canEditOverrides
+
+    fun addEntrance(at: GeoPoint) {
+        val building = _state.value.building ?: return
+        val floor = _state.value.floor ?: return
+        edit { it.withEntrance(building.id, MapEntrance(floor.id, at)) }
+    }
+
+    fun replaceEntrance(old: MapEntrance, new: MapEntrance) {
+        val building = _state.value.building ?: return
+        edit { it.withoutEntrance(building.id, old).withEntrance(building.id, new) }
+    }
+
+    fun removeEntrance(entrance: MapEntrance) {
+        val building = _state.value.building ?: return
+        edit { it.withoutEntrance(building.id, entrance) }
+    }
+
+    /** A null [type] goes back to MazeMap's. */
+    fun setRoomType(feature: MapFeature, type: RoomType?) {
+        val override = type?.let { PoiOverride(note = feature.identifier ?: feature.title, kind = it.kind, typeNames = it.typeNames) }
+        edit { it.withPoi(feature.id, override) }
+    }
+
+    private fun edit(change: (MapOverrides) -> MapOverrides) {
+        viewModelScope.launch {
+            container.maps.editOverrides(change)
+            // A kept focus would pull the view back to that room as soon as the floor redraws
+            _state.update { it.copy(buildings = emptyList(), focus = null) }
+            reload.value++
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -191,12 +232,23 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
     var tapped by remember { mutableStateOf<MapFeature?>(null) }
     var pickingBuilding by remember { mutableStateOf(false) }
     val recentBuildings by container.maps.recentBuildings.collectAsStateWithLifecycle(emptyList())
+    var editing by remember { mutableStateOf(false) }
+    var editingRoom by remember { mutableStateOf<MapFeature?>(null) }
+    var editingEntrance by remember { mutableStateOf<MapEntrance?>(null) }
+    val haptics = LocalHapticFeedback.current
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { BuildingTitle(state.building, state.buildings.isNotEmpty()) { pickingBuilding = true } },
-                actions = { AccountChip(session, onClick = onOpenSettings) },
+                actions = {
+                    if (vm.canEdit) {
+                        FilledIconToggleButton(checked = editing, onCheckedChange = { editing = it }) {
+                            Icon(Icons.Filled.Edit, contentDescription = "Edit map")
+                        }
+                    }
+                    AccountChip(session, onClick = onOpenSettings)
+                },
             )
         },
     ) { padding ->
@@ -227,10 +279,29 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
                             bookable = bookable,
                             focused = state.focus?.poiId,
                             focusKey = state.focus,
-                            onTap = { tapped = it },
+                            onTap = { if (editing) editingRoom = it else tapped = it },
                             modifier = Modifier.fillMaxSize(),
+                            editing = if (editing) {
+                                MapEditGestures(
+                                    onTapEntrance = { editingEntrance = it },
+                                    onLongPress = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        vm.addEntrance(it)
+                                    },
+                                )
+                            } else {
+                                null
+                            },
                         )
                         NorthArrow(building.bearing, Modifier.align(Alignment.TopEnd).padding(8.dp))
+                        if (editing) {
+                            Text(
+                                "Tap a room to change its type. Long-press to add an entrance on this floor.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = 8.dp, end = 52.dp),
+                            )
+                        }
                     }
                     !state.loading -> Notice("Nothing is mapped here.")
                 }
@@ -274,6 +345,36 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
                 onOpenRooms()
             },
             onDismiss = { tapped = null },
+        )
+    }
+
+    editingRoom?.let { feature ->
+        RoomTypeSheet(
+            feature,
+            onPick = {
+                editingRoom = null
+                vm.setRoomType(feature, it)
+            },
+            onDismiss = { editingRoom = null },
+        )
+    }
+
+    editingEntrance?.let { entrance ->
+        // Stays open with each change, since one entrance usually gets both of these
+        fun replaceWith(new: MapEntrance) {
+            editingEntrance = new
+            vm.replaceEntrance(entrance, new)
+        }
+        EntranceSheet(
+            entrance,
+            bearing = state.building?.bearing ?: 0.0,
+            onSetMain = { replaceWith(entrance.copy(main = it)) },
+            onSetDirection = { replaceWith(entrance.copy(direction = it)) },
+            onRemove = {
+                editingEntrance = null
+                vm.removeEntrance(entrance)
+            },
+            onDismiss = { editingEntrance = null },
         )
     }
 }

@@ -3,8 +3,11 @@ package com.melluh.neotime.data
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
+import com.melluh.neotime.timeedit.GeoPoint
+import com.melluh.neotime.timeedit.MapEntrance
 import com.melluh.neotime.timeedit.MapOverrides
 import com.melluh.neotime.timeedit.MazeMapClient
+import com.melluh.neotime.timeedit.PoiOverride
 import com.melluh.neotime.timeedit.RoomLocation
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -13,6 +16,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -31,11 +35,14 @@ class MapRepositoryTest {
 
     private val dataStore by lazy { PreferenceDataStoreFactory.create { folder.root.resolve("test.preferences_pb") } }
 
-    private fun repository(overrides: String = "{}") = MapRepository(
+    private val editsFile by lazy { folder.root.resolve("files/map-overrides.json") }
+
+    private fun repository(overrides: String = "{}", editable: Boolean = false) = MapRepository(
         MazeMapClient(OkHttpClient(), server.url("/")),
         dataStore,
         folder.root.resolve("mazemap"),
         readOverrides = { overrides },
+        editsFile = editsFile.takeIf { editable },
     ) { time }
 
     private fun buildings() = MockResponse().setBody("""{"buildings": [{"id": 1, "name": "Ravelijn"}]}""")
@@ -65,6 +72,44 @@ class MapRepositoryTest {
         assertEquals(30.0, bearing(repository("""{"buildings": {"1": {"bearing": 30}}}""")), 0.0)
         assertEquals(120.0, bearing(repository("""{"buildings": {"1": {"bearing": 120}}}""")), 0.0)
         assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `edits show up, last across restarts and win over the bundled overrides`() = runTest {
+        server.enqueue(buildings())
+        val bundled = """{"buildings": {"1": {"bearing": 30}}}"""
+        val repository = repository(bundled, editable = true)
+        assertEquals(30.0, bearing(repository), 0.0)
+
+        repository.editOverrides { it.withEntrance(1, MapEntrance(9, GeoPoint(6.85, 52.24))) }
+        val building = (repository.buildings() as MapResult.Ok).value.single()
+        assertEquals(1, building.entrances.size)
+        assertEquals("the bundled bearing carries over", 30.0, building.bearing, 0.0)
+
+        val restarted = (repository(bundled, editable = true).buildings() as MapResult.Ok).value.single()
+        assertEquals(1, restarted.entrances.size)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `a room's new type counts on an already cached floor`() = runTest {
+        server.enqueue(MockResponse().setBody("""{"pois": [{"poiId": 5, "kind": "room"}], "limit": 2000}"""))
+        val repository = repository(editable = true)
+        assertEquals(emptyList<String>(), (repository.floorFeatures(9) as MapResult.Ok).value.single().typeNames)
+
+        repository.editOverrides { it.withPoi(5, PoiOverride(typeNames = listOf("Lecture Hall"))) }
+        assertEquals(listOf("Lecture Hall"), (repository.floorFeatures(9) as MapResult.Ok).value.single().typeNames)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `without an edits file nothing can be edited or written`() = runTest {
+        server.enqueue(buildings())
+        val repository = repository("""{"buildings": {"1": {"bearing": 30}}}""")
+        assertFalse(repository.canEditOverrides)
+        repository.editOverrides { it.withPoi(5, PoiOverride(kind = "stairs")) }
+        assertFalse(editsFile.exists())
+        assertEquals(30.0, bearing(repository), 0.0)
     }
 
     @Test

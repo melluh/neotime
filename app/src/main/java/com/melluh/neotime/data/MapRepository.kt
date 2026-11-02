@@ -48,16 +48,22 @@ private data class CheckedLocation(val checkedAtEpochMs: Long, val location: Roo
  * MazeMap's data barely changes, so it's fetched on demand and kept for a week. [readOverrides]
  * gives the [MapOverrides] JSON, which goes on top of the cached copy, not into it: a new app
  * version's overrides then count at once, rather than whenever the cache runs out.
+ *
+ * With an [editsFile] the overrides can be edited: it holds all of them once there's been an edit,
+ * and replaces [readOverrides] from then on. Debug builds only, to get edits back into the app:
+ * `adb exec-out run-as com.melluh.neotime cat files/map-overrides.json > app/src/main/assets/map-overrides.json`
  */
 class MapRepository(
     private val client: MazeMapClient,
     private val dataStore: DataStore<Preferences>,
     private val cacheDir: File,
     private val readOverrides: () -> String = { "{}" },
+    private val editsFile: File? = null,
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
-    private val overrides by lazy { MapOverrides.parse(readOverrides()) }
+    private val overridesLock = Mutex()
+    private var loadedOverrides: MapOverrides? = null
     private val locationsFile = File(cacheDir, "room-locations.json")
     private val locationsSerializer = MapSerializer(String.serializer(), CheckedLocation.serializer())
     private val locationsLock = Mutex()
@@ -81,14 +87,39 @@ class MapRepository(
     private fun recentBuildings(prefs: Preferences): List<Long> =
         prefs[RECENT_BUILDINGS]?.split(',')?.mapNotNull { it.toLongOrNull() } ?: listOfNotNull(prefs[LAST_BUILDING])
 
+    val canEditOverrides: Boolean get() = editsFile != null
+
+    suspend fun editOverrides(change: (MapOverrides) -> MapOverrides) {
+        val file = editsFile ?: return
+        overridesLock.withLock {
+            val edited = change(overridesLocked())
+            loadedOverrides = edited
+            withContext(Dispatchers.IO) {
+                file.parentFile?.mkdirs()
+                val tmp = File(file.path + ".tmp")
+                tmp.writeText(edited.encode())
+                tmp.renameTo(file)
+            }
+        }
+    }
+
+    private suspend fun overrides(): MapOverrides = overridesLock.withLock { overridesLocked() }
+
+    private suspend fun overridesLocked(): MapOverrides = loadedOverrides ?: withContext(Dispatchers.IO) {
+        MapOverrides.parse(editsFile?.takeIf { it.exists() }?.readText() ?: readOverrides())
+    }.also { loadedOverrides = it }
+
     suspend fun buildings(): MapResult<List<MapBuilding>> {
         val result = cached("buildings.json", ListSerializer(MapBuilding.serializer())) { client.buildings() }
         if (result !is MapResult.Ok) return result
-        return result.copy(value = withContext(Dispatchers.IO) { overrides }.applyTo(result.value))
+        return result.copy(value = overrides().applyTo(result.value))
     }
 
-    suspend fun floorFeatures(floorId: Long): MapResult<List<MapFeature>> =
-        cached("floor-$floorId.json", ListSerializer(MapFeature.serializer())) { client.floorFeatures(floorId) }
+    suspend fun floorFeatures(floorId: Long): MapResult<List<MapFeature>> {
+        val result = cached("floor-$floorId.json", ListSerializer(MapFeature.serializer())) { client.floorFeatures(floorId) }
+        if (result !is MapResult.Ok) return result
+        return result.copy(value = overrides().applyToFeatures(result.value))
+    }
 
     /**
      * Where the room called [name] is, asking MazeMap only about rooms that are actually opened.

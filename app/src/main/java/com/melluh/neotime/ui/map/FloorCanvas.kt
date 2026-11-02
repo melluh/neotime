@@ -6,6 +6,9 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -22,11 +25,15 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
@@ -39,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import com.melluh.neotime.timeedit.GeoPoint
 import com.melluh.neotime.timeedit.MapBuilding
+import com.melluh.neotime.timeedit.MapEntrance
 import com.melluh.neotime.timeedit.MapFeature
 import com.melluh.neotime.timeedit.MapFloor
 import com.melluh.neotime.timeedit.MapProjection
@@ -57,6 +65,12 @@ private const val FOCUS_ZOOM = 5f
 /** Marks bookable rooms over whatever their layer draws them in. */
 private const val BOOKABLE_ALPHA = 0.25f
 private const val FOCUS_ALPHA = 0.6f
+
+private const val ENTRANCE_DP = 22
+private const val ENTRANCE_ICON_SCALE = 0.7f
+
+/** How far from a marker a tap still counts as being on it. */
+private const val ENTRANCE_REACH_DP = 24
 
 /** Declared in drawing order; hallways and areas overlap the rooms on top of them. */
 private enum class Layer { AREA, HALLWAY, ROOM, LECTURE_HALL, TOILET, STAIRS_AND_LIFTS }
@@ -154,9 +168,13 @@ private class FloorGeometry(val outline: Path?, val shapes: List<Shape>) {
     }
 }
 
+/** What [FloorCanvas] does differently while the map's being edited. */
+class MapEditGestures(val onTapEntrance: (MapEntrance) -> Unit, val onLongPress: (GeoPoint) -> Unit)
+
 /**
  * A floor plan you can pan, pinch and tap. [bookable] marks features by id, and the view moves to
- * [focused] whenever that changes. [focusKey] can change to move there again.
+ * [focused] whenever that changes. [focusKey] can change to move there again. With [editing], every
+ * room can be tapped instead of only the ones you'd go to.
  */
 @Composable
 fun FloorCanvas(
@@ -169,15 +187,21 @@ fun FloorCanvas(
     focusKey: Any?,
     onTap: (MapFeature) -> Unit,
     modifier: Modifier = Modifier,
+    editing: MapEditGestures? = null,
 ) {
     val frame = remember(building.id, features) {
         val outlines = building.floors.flatMap { it.outline.orEmpty().flatten() }
         BuildingFrame.of(outlines.ifEmpty { features.flatMap { it.rings.orEmpty().flatten() } }, building.bearing)
     } ?: return
     val geometry = remember(frame, floor.id, features) { FloorGeometry.of(frame, floor, features) }
+    val entrances = remember(frame, floor.id, building.entrances) {
+        building.entrances.filter { it.floorId == floor.id }.map { it to frame.project(it.at) }
+    }
 
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     val currentOnTap by rememberUpdatedState(onTap)
+    val currentEditing by rememberUpdatedState(editing)
+    val currentEntrances by rememberUpdatedState(entrances)
 
     LaunchedEffect(focusKey, geometry, viewport, canvasSize) {
         val shape = geometry.shapes.firstOrNull { it.feature.id == focused } ?: return@LaunchedEffect
@@ -203,6 +227,9 @@ fun FloorCanvas(
     val wall = colors.outline
     val accent = colors.primary
     val floorFill = colors.surfaceVariant
+    val entranceIcon = rememberVectorPainter(Icons.AutoMirrored.Filled.ExitToApp)
+    val directionIcon = rememberVectorPainter(Icons.AutoMirrored.Filled.ArrowForward)
+    val onAccent = colors.onPrimary
 
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = colors.onSurface)
@@ -214,16 +241,32 @@ fun FloorCanvas(
             .clipToBounds()
             .onSizeChanged { canvasSize = it }
             .pointerInput(viewport, frame, geometry) {
-                detectTapGestures { tap ->
-                    val view = size.toSize()
-                    val scale = fitScale(frame, view) * viewport.zoom
-                    val origin = Offset(view.width / 2f, view.height / 2f) + viewport.pan -
-                        Offset(frame.width / 2, frame.height / 2) * scale
-                    val point = frame.unproject((tap - origin) / scale)
-                    // The top one is what's seen there, since shapes are in drawing order
-                    geometry.shapes.lastOrNull { it.label != null && point in it.feature.rings.orEmpty() }
-                        ?.let { currentOnTap(it.feature) }
-                }
+                fun scale() = fitScale(frame, size.toSize()) * viewport.zoom
+
+                fun origin() = Offset(size.width / 2f, size.height / 2f) + viewport.pan -
+                    Offset(frame.width / 2, frame.height / 2) * scale()
+
+                detectTapGestures(
+                    onLongPress = { press ->
+                        currentEditing?.onLongPress(frame.unproject((press - origin()) / scale()))
+                    },
+                    onTap = { tap ->
+                        val edit = currentEditing
+                        val reach = ENTRANCE_REACH_DP.dp.toPx()
+                        val entrance = currentEntrances.takeIf { edit != null }
+                            ?.minByOrNull { (_, at) -> (origin() + at * scale() - tap).getDistance() }
+                            ?.takeIf { (_, at) -> (origin() + at * scale() - tap).getDistance() <= reach }
+                        if (edit != null && entrance != null) {
+                            edit.onTapEntrance(entrance.first)
+                            return@detectTapGestures
+                        }
+                        val point = frame.unproject((tap - origin()) / scale())
+                        // The top one is what's seen there, since shapes are in drawing order
+                        geometry.shapes
+                            .lastOrNull { (edit != null || it.label != null) && point in it.feature.rings.orEmpty() }
+                            ?.let { currentOnTap(it.feature) }
+                    },
+                )
             }
             .pointerInput(viewport) {
                 detectTransformGestures { centroid, delta, gestureZoom, _ ->
@@ -259,6 +302,23 @@ fun FloorCanvas(
 
         drawLabels(geometry, scale, Offset(originX, originY)) { text ->
             labels.getOrPut(text) { measurer.measure(text, labelStyle) }
+        }
+
+        // Out here too, so that a door doesn't grow into the size of a room when zoomed in
+        entrances.forEach { (entrance, at) ->
+            val diameter = ENTRANCE_DP.dp.toPx()
+            val middle = Offset(originX, originY) + at * scale
+            drawCircle(if (entrance.main) accent else wall, diameter / 2, middle)
+            val icon = diameter * ENTRANCE_ICON_SCALE
+            val angle = entrance.directionOnMap(building.bearing)
+            // The arrow's drawn pointing right
+            rotate((angle ?: 90.0).toFloat() - 90f, middle) {
+                translate(middle.x - icon / 2, middle.y - icon / 2) {
+                    with(if (angle != null) directionIcon else entranceIcon) {
+                        draw(Size(icon, icon), colorFilter = ColorFilter.tint(onAccent))
+                    }
+                }
+            }
         }
     }
 }

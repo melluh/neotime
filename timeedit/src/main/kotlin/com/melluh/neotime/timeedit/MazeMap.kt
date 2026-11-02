@@ -23,10 +23,27 @@ typealias Rings = List<List<GeoPoint>>
 
 /** [floors] run from lowest to highest. [bearing] is the compass direction, in degrees, drawn pointing up. */
 @Serializable
-data class MapBuilding(val id: Long, val name: String, val floors: List<MapFloor>, val bearing: Double = 0.0) {
+data class MapBuilding(
+    val id: Long,
+    val name: String,
+    val floors: List<MapFloor>,
+    val bearing: Double = 0.0,
+    val entrances: List<MapEntrance> = emptyList(),
+) {
     /** The ground floor where one is marked, since basements share the lowest [MapFloor.z]. */
     val defaultFloor: MapFloor?
         get() = floors.firstOrNull { it.z >= 1 } ?: floors.firstOrNull()
+}
+
+/**
+ * A way into a building, from outside. MazeMap has no such thing, so these all come from
+ * [MapOverrides]. [direction] is the compass direction you walk in, in degrees. It's not relative
+ * to the map, so that it stays right if a building's bearing changes.
+ */
+@Serializable
+data class MapEntrance(val floorId: Long, val at: GeoPoint, val main: Boolean = false, val direction: Double? = null) {
+    /** Clockwise from straight up on a map drawn with [bearing] pointing up. */
+    fun directionOnMap(bearing: Double): Double? = direction?.let { (it - bearing).mod(360.0) }
 }
 
 /** [name] is what the building calls it; order by [z], because floor "0" can have z = -1. */
