@@ -308,7 +308,7 @@ private fun EventSheet(
                 Column {
                     DetailLabel("Lecturers")
                     event.lecturers.forEach { name ->
-                        LecturerRow(name, lecturers[name]?.match) { openedLecturer = name }
+                        LecturerRow(name, lecturers[name]?.on(event)?.match) { openedLecturer = name }
                     }
                 }
             }
@@ -327,7 +327,7 @@ private fun EventSheet(
             mapProblem?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
         }
         openedLecturer?.let { name ->
-            LecturerCard(name, lecturers[name], vm, onOpenMap, onDismiss = { openedLecturer = null })
+            LecturerCard(name, lecturers[name]?.on(event), vm, onOpenMap, onDismiss = { openedLecturer = null })
         }
     }
 }

@@ -27,8 +27,8 @@ class CoursePartsTest {
     @Test
     fun `course codes cover every course on an event and none on a holiday`() {
         val shared = event("IT and Law. 202100211, Cybersecurity and Law Diamond. 202600096")
-        assertEquals(listOf("202100211", "202600096"), shared.courseCodes)
-        assertEquals(emptyList<String>(), event("Christmas Break").courseCodes)
+        assertEquals(setOf("202100211", "202600096"), shared.courseCodes)
+        assertEquals(emptySet<String>(), event("Christmas Break").courseCodes)
     }
 
     @Test

@@ -1,10 +1,14 @@
 package com.melluh.neotime.timeedit
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.Jsoup
@@ -18,13 +22,27 @@ import java.text.Normalizer
 @Serializable
 data class PersonMatch(val profileUrl: String, val photoUrl: String? = null, val displayName: String? = null)
 
-/** What a person's profile page adds. Its [photoUrl] is twice the size of the search result's. */
+/**
+ * What a person's profile page adds. Its [photoUrl] is twice the size of the search result's.
+ * [courses] holds the Osiris codes taught per academic year, by the year it starts in.
+ */
 @Serializable
 data class PersonDetails(
     val photoUrl: String? = null,
     val email: String? = null,
     val offices: List<String> = emptyList(),
+    val courses: Map<Int, Set<String>> = emptyMap(),
 )
+
+/** One of several people with the same name; their [details] are what tells them apart. */
+@Serializable
+data class Namesake(val match: PersonMatch, val details: PersonDetails) {
+    fun teaches(courseCodes: Set<String>, academicYear: Int): Boolean =
+        details.courses[academicYear].orEmpty().any { it in courseCodes }
+}
+
+/** The result of a search: the one person with a name, or the [namesakes] who share it. */
+data class PersonLookup(val match: PersonMatch? = null, val namesakes: List<Namesake> = emptyList())
 
 /** TimeEdit lists roles such as "*Unsupervised" in the lecturer column; those aren't people. */
 fun isPlaceholderLecturer(name: String): Boolean = name.startsWith("*")
@@ -45,11 +63,18 @@ class PeopleDirectory(
         .build()
         .toString()
 
-    /** Returns the one person called [name], or null when none or several match. */
-    suspend fun lookup(name: String): PersonMatch? {
-        val tile = match(name, parseTiles(download(searchUrl(name)))) ?: return null
-        val profile = base.newBuilder().addPathSegment(tile.slug).build().toString()
-        return PersonMatch(profile, tile.photoUrl, fullName(tile.title) ?: name)
+    /** Finds who is called [name]. Several people means reading each one's profile as well. */
+    suspend fun lookup(name: String): PersonLookup {
+        val people = matches(name, parseTiles(download(searchUrl(name)))).map { tile ->
+            val profile = base.newBuilder().addPathSegment(tile.slug).build().toString()
+            PersonMatch(profile, tile.photoUrl, fullName(tile.title) ?: name)
+        }
+        if (people.size < 2) return PersonLookup(people.singleOrNull())
+        return PersonLookup(
+            namesakes = coroutineScope {
+                people.map { async { Namesake(it, details(it.profileUrl)) } }.awaitAll()
+            },
+        )
     }
 
     /** Reads the profile page at [profileUrl], as returned by [lookup]. */
@@ -73,7 +98,18 @@ class PeopleDirectory(
                 val line = address.selectFirst("p.normal")?.textNodes()?.firstOrNull()?.text()?.trim()
                 line?.takeIf { it.isNotEmpty() }?.let(::office)
             }.distinct(),
+            courses = page.select("#tabpanel-education a[href*=cursuscode=]")
+                .mapNotNull { link -> course(link.attr("href")) }
+                .groupBy({ (year, _) -> year }, { (_, code) -> code })
+                .mapValues { (_, codes) -> codes.toSet() },
         )
+    }
+
+    /** The academic year and code in a link to the Osiris course catalogue. */
+    private fun course(link: String): Pair<Int, String>? {
+        val url = link.toHttpUrlOrNull() ?: return null
+        val year = url.queryParameter("collegejaar")?.toIntOrNull() ?: return null
+        return url.queryParameter("cursuscode")?.let { year to it }
     }
 
     /** "Zilverling 3035" for "Zilverling (building no. 11), room 3035", as in search results. */
@@ -91,13 +127,10 @@ class PeopleDirectory(
             Tile(slug, title, tile.selectFirst("img.ut-person-tile__image")?.attr("src")?.takeIf { it.isNotEmpty() })
         }
 
-    /**
-     * Requires an exact name match. An ambiguous name returns null rather than the first hit,
-     * because showing the wrong person's face is worse than showing none.
-     */
-    internal fun match(name: String, tiles: List<Tile>): Tile? {
+    /** Requires an exact name match, as the search's own results are only loosely related. */
+    internal fun matches(name: String, tiles: List<Tile>): List<Tile> {
         val wanted = normalize(name)
-        return tiles.filter { wanted in names(it.title) }.singleOrNull()
+        return tiles.filter { wanted in names(it.title) }
     }
 
     /** "Jong, J. de (Jorn)" is both "J. de Jong" and "Jorn de Jong"; TimeEdit uses either. */

@@ -77,6 +77,24 @@ class ScheduleParserTest {
     }
 
     @Test
+    fun `course codes are found, also for combined courses`() {
+        fun codes(course: String) = Event("1", LocalDateTime.MIN, LocalDateTime.MIN, course).courseCodes
+        assertEquals(setOf("202500342"), codes("Introduction to Programming. 202500342"))
+        assertEquals(setOf("202000001", "202000002"), codes("Calculus A. 202000001, Calculus B. 202000002"))
+        assertTrue(codes("No code here").isEmpty())
+    }
+
+    @Test
+    fun `the academic year starts on the monday of the week of 1 September`() {
+        fun year(date: LocalDate) = Event("1", date.atStartOfDay(), date.atStartOfDay(), "").academicYear
+        assertEquals(2025, year(LocalDate.of(2026, 8, 30)))
+        assertEquals(2026, year(LocalDate.of(2026, 8, 31)))
+        assertEquals(2026, year(LocalDate.of(2026, 12, 17)))
+        assertEquals(2026, year(LocalDate.of(2027, 8, 29)))
+        assertEquals(2027, year(LocalDate.of(2027, 8, 30)))
+    }
+
+    @Test
     fun `missing columns become null`() {
         val body = """{"columnheaders":["Course"],"info":{"reservationlimit":1000,"reservationcount":1},
             "reservations":[{"id":"1","startdate":"01/02/2027","starttime":"09:00","enddate":"01/02/2027","endtime":"10:00","columns":["X. 123456"]}]}"""

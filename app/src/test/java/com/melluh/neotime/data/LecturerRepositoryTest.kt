@@ -1,10 +1,13 @@
 package com.melluh.neotime.data
 
+import com.melluh.neotime.timeedit.Event
 import com.melluh.neotime.timeedit.PeopleDirectory
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -16,6 +19,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.time.Duration
+import java.time.LocalDate
 
 class LecturerRepositoryTest {
     @get:Rule
@@ -231,6 +235,106 @@ class LecturerRepositoryTest {
         repository.load(listOf("T. van Dijk"))
         assertEquals(1, server.requestCount)
         assertEquals("Tom van Dijk", repository.entries.value["T. van Dijk"]?.match?.displayName)
+    }
+
+    private fun namesakes() = MockResponse().setBody(
+        """<div class="ut-person-tile" data-link="jasper"><h3 class="ut-person-tile__title">Jong, J. de (Jasper)</h3></div>
+           <div class="ut-person-tile" data-link="jorn"><h3 class="ut-person-tile__title">Jong, J. de (Jorn)</h3></div>""",
+    )
+
+    private fun teaching(email: String, vararg courses: Pair<Int, String>) = MockResponse().setBody(
+        """<div class="page-sidebar__panel--specsheet"><a href="mailto:$email">$email</a></div>
+           <div id="tabpanel-education"><ul>""" +
+            courses.joinToString("") { (year, code) -> """<li><a href="https://osiris.example/c?cursuscode=$code&collegejaar=$year">x</a></li>""" } +
+            "</ul></div>",
+    )
+
+    /** Jasper teaches 111 and 333, Jorn teaches 222 and 333, and last year only Jorn taught 111. */
+    private suspend fun jDeJong(): LecturerEntry {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest) = when (request.requestUrl!!.encodedPath) {
+                "/overview" -> namesakes()
+                "/jasper" -> teaching("jasper@utwente.nl", 2026 to "111111", 2026 to "333333")
+                else -> teaching("jorn@utwente.nl", 2026 to "222222", 2026 to "333333", 2025 to "111111")
+            }
+        }
+        val repository = repository()
+        repository.load(listOf("J. de Jong"))
+        return repository.entries.value.getValue("J. de Jong")
+    }
+
+    private fun event(course: String, date: LocalDate = LocalDate.of(2026, 12, 17)) =
+        Event("1", date.atStartOfDay(), date.atStartOfDay(), course)
+
+    @Test
+    fun `a shared name is whoever teaches the event's course`() = runTest {
+        val entry = jDeJong()
+        assertNull(entry.match)
+        assertEquals("Jasper de Jong", entry.on(event("Calculus. 111111")).match?.displayName)
+        assertEquals("Jorn de Jong", entry.on(event("Calculus. 222222")).match?.displayName)
+    }
+
+    @Test
+    fun `a namesake's profile needs no further reading`() = runTest {
+        val entry = jDeJong().on(event("Calculus. 111111"))
+        assertEquals("jasper@utwente.nl", entry.profile?.details?.email)
+        assertEquals(3, server.requestCount)
+    }
+
+    @Test
+    fun `any of a combined event's courses tells namesakes apart`() = runTest {
+        assertEquals("Jorn de Jong", jDeJong().on(event("Other. 999999, Calculus. 222222")).match?.displayName)
+    }
+
+    @Test
+    fun `a course taught by several namesakes or none of them stays unresolved`() = runTest {
+        val entry = jDeJong()
+        assertNull(entry.on(event("Calculus. 333333")).match)
+        assertNull(entry.on(event("Unlisted. 999999")).match)
+        assertNull(entry.on(event("No code")).match)
+    }
+
+    @Test
+    fun `only the event's own academic year counts`() = runTest {
+        val lastYear = LocalDate.of(2026, 3, 1)
+        assertEquals("Jorn de Jong", jDeJong().on(event("Calculus. 111111", lastYear)).match?.displayName)
+    }
+
+    @Test
+    fun `namesakes survive a restart`() = runTest {
+        jDeJong()
+        val entry = repository().entries.value.getValue("J. de Jong")
+        assertEquals("Jasper de Jong", entry.on(event("Calculus. 111111")).match?.displayName)
+    }
+
+    @Test
+    fun `someone with their name to themselves is the same on every event`() = runTest {
+        server.enqueue(found())
+        val repository = repository()
+        repository.load(listOf("T. van Dijk"))
+        val entry = repository.entries.value.getValue("T. van Dijk")
+        assertEquals(entry, entry.on(event("Calculus. 111111")))
+    }
+
+    @Test
+    fun `namesakes are looked up again sooner, as course lists fill up`() = runTest {
+        jDeJong()
+        val repository = repository()
+        val before = server.requestCount
+        advance(Duration.ofDays(6))
+        repository.load(listOf("J. de Jong"))
+        assertEquals(before, server.requestCount)
+
+        advance(Duration.ofDays(2))
+        repository.load(listOf("J. de Jong"))
+        assertEquals(before + 3, server.requestCount)
+    }
+
+    @Test
+    fun `a miss cached before namesakes were kept is refreshed before it expires`() = runTest {
+        cacheFile.writeText("""{"J. de Jong":{"fetchedAtEpochMs":$time}}""")
+        val entry = jDeJong()
+        assertEquals("Jasper de Jong", entry.on(event("Calculus. 111111")).match?.displayName)
     }
 
     @Test

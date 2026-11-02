@@ -2,8 +2,10 @@ package com.melluh.neotime.timeedit
 
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -42,6 +44,8 @@ class PeopleDirectoryTest {
     }
 
     private fun details(fixture: String) = directory.parseDetails(Fixtures.read("people/$fixture"))
+
+    private fun PeopleDirectory.match(name: String, tiles: List<PeopleDirectory.Tile>) = matches(name, tiles).singleOrNull()
 
     @Test
     fun `a profile has the larger photo, email and office`() {
@@ -84,7 +88,7 @@ class PeopleDirectoryTest {
     @Test
     fun `lookup returns the profile and photo of the one match`() = runTest {
         server.enqueue(MockResponse().setBody(Fixtures.read("people/search_t_van_dijk.html")))
-        val match = directory.lookup("T. van Dijk")
+        val match = directory.lookup("T. van Dijk").match
         assertEquals(server.url("/t.vandijk").toString(), match!!.profileUrl)
         assertTrue(match.photoUrl!!.startsWith("https://utwente.becdn.net/"))
         assertEquals("Tom van Dijk", match.displayName)
@@ -96,7 +100,7 @@ class PeopleDirectoryTest {
                 """<div class="ut-person-tile" data-link="slug"><h3 class="ut-person-tile__title">$title</h3></div>""",
             ),
         )
-        return directory.lookup(name)?.displayName
+        return directory.lookup(name).match?.displayName
     }
 
     @Test
@@ -134,16 +138,94 @@ class PeopleDirectoryTest {
     @Test
     fun `person without a photo still matches`() = runTest {
         server.enqueue(MockResponse().setBody(Fixtures.read("people/search_van_dijk.html")))
-        val match = directory.lookup("Y. van Dijk")
+        val match = directory.lookup("Y. van Dijk").match
         assertEquals(server.url("/y.vandijk").toString(), match!!.profileUrl)
         assertNull(match.photoUrl)
     }
 
     @Test
-    fun `ambiguous name matches nobody`() = runTest {
+    fun `an ambiguous name is everyone with it`() {
         val tiles = tiles("search_y_li.html")
-        assertTrue(tiles.count { it.title.startsWith("Li, Y. (") } > 1)
-        assertNull(directory.match("Y. Li", tiles))
+        assertEquals(tiles.count { it.title.startsWith("Li, Y. (") }, directory.matches("Y. Li", tiles).size)
+        assertTrue(directory.matches("Y. Li", tiles).size > 1)
+    }
+
+    private fun serveDeJongs() {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest) = when (request.requestUrl!!.encodedPath) {
+                "/overview" -> MockResponse().setBody(Fixtures.read("people/search_j_de_jong.html"))
+                "/j.dejong-3" -> MockResponse().setBody(Fixtures.read("people/profile_jasper_de_jong.html"))
+                "/jorn.dejong" -> MockResponse().setBody(Fixtures.read("people/profile_jorn_de_jong.html"))
+                "/jan-willem.dejong" -> MockResponse().setBody(Fixtures.read("people/profile_jan_willem_de_jong.html"))
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+    }
+
+    private suspend fun deJongs() = directory.lookup("J. de Jong").namesakes.associateBy { it.match.displayName }
+
+    @Test
+    fun `everyone with a shared name has their profile read`() = runTest {
+        serveDeJongs()
+        val lookup = directory.lookup("J. de Jong")
+        assertNull(lookup.match)
+        assertEquals(setOf("Jasper de Jong", "Jorn de Jong", "Jan-Willem de Jong"), lookup.namesakes.map { it.match.displayName }.toSet())
+        assertEquals(4, server.requestCount)
+    }
+
+    @Test
+    fun `the course tells namesakes apart, as the people pages list it`() = runTest {
+        serveDeJongs()
+        val people = deJongs()
+        val ideCalculus = setOf("202001199")
+        assertTrue(people.getValue("Jasper de Jong").teaches(ideCalculus, 2026))
+        assertFalse(people.getValue("Jorn de Jong").teaches(ideCalculus, 2026))
+        assertFalse(people.getValue("Jan-Willem de Jong").teaches(ideCalculus, 2026))
+    }
+
+    @Test
+    fun `a course can be taught by several namesakes`() = runTest {
+        serveDeJongs()
+        val people = deJongs()
+        val bmtCalculus = setOf("202001195")
+        assertTrue(people.getValue("Jasper de Jong").teaches(bmtCalculus, 2026))
+        assertTrue(people.getValue("Jorn de Jong").teaches(bmtCalculus, 2026))
+    }
+
+    @Test(expected = IOException::class)
+    fun `a namesake's unreadable profile fails the lookup, rather than leaving the others`() = runTest {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest) =
+                if (request.requestUrl!!.encodedPath == "/overview") {
+                    MockResponse().setBody(Fixtures.read("people/search_j_de_jong.html"))
+                } else {
+                    MockResponse().setResponseCode(503)
+                }
+        }
+        directory.lookup("J. de Jong")
+    }
+
+    @Test
+    fun `courses are listed per academic year`() {
+        val courses = details("profile_jasper_de_jong.html").courses
+        assertEquals(setOf(2025, 2026), courses.keys)
+        assertEquals(27, courses.getValue(2026).size)
+        assertEquals(39, courses.getValue(2025).size)
+    }
+
+    @Test
+    fun `a profile without an education tab has no courses`() {
+        assertTrue(details("profile_jan_willem_de_jong.html").courses.isEmpty())
+    }
+
+    @Test
+    fun `links that aren't to a course are skipped`() {
+        val html = """<div id="tabpanel-education"><ul>
+            <li><a href="https://example.com/?cursuscode=1">No year</a></li>
+            <li><a href="not a url?cursuscode=1&collegejaar=2026">Broken</a></li>
+            <li><a href="https://example.com/?cursuscode=2&collegejaar=2026">Fine</a></li>
+            </ul></div>"""
+        assertEquals(mapOf(2026 to setOf("2")), directory.parseDetails(html).courses)
     }
 
     @Test

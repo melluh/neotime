@@ -6,9 +6,11 @@ import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.temporal.TemporalAdjusters
 
 /** All TimeEdit times are local to the university. */
 val TIMEEDIT_ZONE: ZoneId = ZoneId.of("Europe/Amsterdam")
@@ -72,9 +74,9 @@ data class Event(
     val courseName: String
         get() = course.split(COURSE_SEPARATOR).joinToString(", ") { it.replace(COURSE_CODE, "") }
 
-    /** Osiris codes of the courses this event belongs to. Holidays have none. */
-    val courseCodes: List<String>
-        get() = course.split(COURSE_SEPARATOR).mapNotNull { COURSE_CODE.find(it)?.groupValues?.get(1) }
+    /** Osiris codes of the courses this event belongs to, e.g. "202500342". Holidays have none. */
+    val courseCodes: Set<String>
+        get() = course.split(COURSE_SEPARATOR).mapNotNull { COURSE_CODE.find(it)?.groupValues?.get(1) }.toSet()
 
     /**
      * [coursePart] as a person would write it. TimeEdit ends it with a code, which isn't always
@@ -84,6 +86,13 @@ data class Event(
         get() = coursePart?.replace(ZERO_WIDTH, "")?.replace(PART_CODE, "")?.trim()?.ifEmpty { null }
 
     val date: LocalDate get() = start.toLocalDate()
+
+    /** The year this event's academic year starts in, on the Monday of the week of 1 September. */
+    val academicYear: Int
+        get() {
+            val first = LocalDate.of(date.year, 9, 1).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            return if (date.isBefore(first)) date.year - 1 else date.year
+        }
 
     /** [rooms] with their MazeMap identifiers, which are only known if every room has a link. */
     val places: List<RoomPlace>

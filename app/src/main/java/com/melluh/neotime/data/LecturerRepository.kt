@@ -1,5 +1,7 @@
 package com.melluh.neotime.data
 
+import com.melluh.neotime.timeedit.Event
+import com.melluh.neotime.timeedit.Namesake
 import com.melluh.neotime.timeedit.PeopleDirectory
 import com.melluh.neotime.timeedit.PersonDetails
 import com.melluh.neotime.timeedit.PersonMatch
@@ -23,13 +25,30 @@ import java.io.IOException
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
-/** A finished lookup. A null [match] means the name didn't resolve to exactly one person. */
+/**
+ * A finished lookup. A null [match] means the name didn't resolve to exactly one person; that
+ * may depend on the course, so [namesakes] holds everyone who shares it for [on] to choose from.
+ * [namesakes] is null only in entries cached before it was added.
+ */
 @Serializable
 data class LecturerEntry(
     val match: PersonMatch? = null,
     val fetchedAtEpochMs: Long = 0,
     val profile: LecturerProfile? = null,
-)
+    val namesakes: List<Namesake>? = null,
+) {
+    /**
+     * This lecturer as they are on [event]: a shared name means whichever namesake teaches its
+     * courses that year. If that's several of them this stays unresolved, because showing the
+     * wrong person's face is worse than showing none.
+     */
+    fun on(event: Event): LecturerEntry {
+        val teacher = namesakes.orEmpty()
+            .filter { it.teaches(event.courseCodes, event.academicYear) }
+            .singleOrNull() ?: return this
+        return copy(match = teacher.match, profile = LecturerProfile(teacher.details, fetchedAtEpochMs))
+    }
+}
 
 @Serializable
 data class LecturerProfile(val details: PersonDetails, val fetchedAtEpochMs: Long)
@@ -63,10 +82,10 @@ class LecturerRepository(
     private suspend fun fetch(name: String) {
         if (!inFlight.add(name)) return
         try {
-            val match = directory.lookup(name)
+            val (match, namesakes) = directory.lookup(name)
             _entries.update { entries ->
                 val profile = entries[name]?.takeIf { it.match?.profileUrl == match?.profileUrl }?.profile
-                entries + (name to LecturerEntry(match, now(), profile))
+                entries + (name to LecturerEntry(match, now(), profile, namesakes))
             }
             save()
         } catch (e: IOException) {
@@ -105,6 +124,8 @@ class LecturerRepository(
         if (entry == null) return false
         // Cached before names were stored: refresh now rather than show initials for another month
         if (entry.match != null && entry.match.displayName == null) return false
+        // Cached before namesakes were kept: this miss may be one that can be told apart now
+        if (entry.match == null && entry.namesakes == null) return false
         return isRecent(entry.fetchedAtEpochMs, if (entry.match != null) MATCH_MAX_AGE else MISS_MAX_AGE)
     }
 
