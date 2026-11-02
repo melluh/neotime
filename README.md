@@ -22,6 +22,7 @@ An unofficial Android client for TimeEdit. Specifically geared towards the Unive
 
 - Immediate link through from lecture rooms, booked project rooms, and teacher's office numbers.
 - MazeMap data to make the maps clearer: entrances marked, maps rotated.
+- See who has an office in a room, from `people.utwente.nl`.
 
 ## Privacy
 

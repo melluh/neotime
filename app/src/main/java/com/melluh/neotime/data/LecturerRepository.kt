@@ -64,10 +64,14 @@ class LecturerRepository(
     private val writeLock = Mutex()
     private val inFlight = ConcurrentHashMap.newKeySet<String>()
     private val profilesInFlight = ConcurrentHashMap.newKeySet<String>()
+    private val roomPeople = ConcurrentHashMap<String, List<PersonMatch>>()
 
     private val _entries = MutableStateFlow(readCache())
 
-    /** Past lookups by lecturer name; an old entry stays visible while it's refreshed. */
+    /**
+     * Past lookups by lecturer name; an old entry stays visible while it's refreshed. People found
+     * by [peopleInRoom] are here by their profile URL, which [loadProfile] takes like a name.
+     */
     val entries: StateFlow<Map<String, LecturerEntry>> = _entries.asStateFlow()
 
     fun searchUrl(name: String): String = directory.searchUrl(name)
@@ -93,6 +97,24 @@ class LecturerRepository(
         } finally {
             inFlight.remove(name)
         }
+    }
+
+    /**
+     * Who has the room with this MazeMap identifier as their office, or null if that couldn't be
+     * found out. Answers are kept until the app closes, so tapping around a floor stays cheap.
+     */
+    suspend fun peopleInRoom(identifier: String): List<PersonMatch>? {
+        roomPeople[identifier]?.let { return it }
+        val people = try {
+            directory.inRoom(identifier)
+        } catch (e: IOException) {
+            return null
+        }
+        _entries.update { entries ->
+            entries + people.map { it.profileUrl to (entries[it.profileUrl]?.copy(match = it) ?: LecturerEntry(it, now())) }
+        }
+        roomPeople[identifier] = people
+        return people
     }
 
     /**

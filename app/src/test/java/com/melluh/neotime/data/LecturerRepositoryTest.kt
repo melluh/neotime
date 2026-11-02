@@ -47,6 +47,50 @@ class LecturerRepositoryTest {
         time += duration.toMillis()
     }
 
+    private fun inOffice() = MockResponse().setBody(
+        """<div class="ut-person-tile" data-link="t.vandijk"><h3 class="ut-person-tile__title">Dijk, T. van (Tom)</h3>""" +
+            """<div class="ut-person-tile__location"><div>Zilverling 3035</div></div></div>""",
+    )
+
+    @Test
+    fun `people in a room can have their profile read like a lecturer's`() = runTest {
+        server.enqueue(inOffice())
+        server.enqueue(profilePage())
+        val repository = repository()
+        val person = repository.peopleInRoom("ZI3035")!!.single()
+        assertEquals("Tom van Dijk", person.displayName)
+        assertTrue(repository.loadProfile(person.profileUrl))
+        assertNotNull(repository.entries.value[person.profileUrl]?.profile)
+    }
+
+    @Test
+    fun `a room is only searched once`() = runTest {
+        server.enqueue(inOffice())
+        val repository = repository()
+        repository.peopleInRoom("ZI3035")
+        repository.peopleInRoom("ZI3035")
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `a failed room search says so and is tried again`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(500))
+        server.enqueue(nobody())
+        val repository = repository()
+        assertNull(repository.peopleInRoom("ZI3035"))
+        assertEquals(emptyList<Any>(), repository.peopleInRoom("ZI3035"))
+    }
+
+    @Test
+    fun `a person found in a room doesn't replace a lecturer of the same name`() = runTest {
+        server.enqueue(found())
+        server.enqueue(inOffice())
+        val repository = repository()
+        repository.load(listOf("T. van Dijk"))
+        repository.peopleInRoom("ZI3035")
+        assertNotNull(repository.entries.value["T. van Dijk"]?.match)
+    }
+
     @Test
     fun `a match is stored and survives a restart`() = runTest {
         server.enqueue(found())

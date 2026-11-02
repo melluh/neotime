@@ -251,6 +251,37 @@ class MazeMapTest {
     }
 
     @Test
+    fun `numbered rooms without a type might be offices`() {
+        assertTrue(feature("3035").mightBeOffice)
+        assertTrue(feature("C4641").mightBeOffice)
+        assertTrue(feature("NH107").mightBeOffice)
+        assertTrue(feature("VL-101").mightBeOffice)
+    }
+
+    @Test
+    fun `staffed receptions might be offices`() {
+        assertTrue(feature("Student Services", "room", "Reception").mightBeOffice)
+        assertTrue(feature("1007", "room", "Reception").mightBeOffice)
+    }
+
+    @Test
+    fun `rooms for everyone are not offices`() {
+        assertFalse(feature("Collegezaal SP4", "room", "Lecture Hall").mightBeOffice)
+        assertFalse(feature("Collegezaal WH221").mightBeOffice) // not all of them have the type
+        assertFalse(feature("302", "room", "Mosque").mightBeOffice)
+        assertFalse(feature("Kantine").mightBeOffice)
+        assertFalse(feature("Sportzaal 1").mightBeOffice)
+        assertFalse(feature("Meeting room 310").mightBeOffice)
+    }
+
+    @Test
+    fun `what isn't a destination is not an office`() {
+        assertFalse(feature("4221", "room", "Toilet - Male").mightBeOffice)
+        assertFalse(feature("4251", "room", "Technical Room").mightBeOffice)
+        assertFalse(feature("4000VB").mightBeOffice)
+    }
+
+    @Test
     fun `rooms win from other features with the same identifier`() {
         val desk = """{"poiId": 1, "identifier": "X1", "kind": "desk", "buildingId": 9, "floorId": 4}"""
         assertEquals(RoomLocation(2, "X1", 9, 5), located(desk, at(2, 5)))

@@ -71,7 +71,23 @@ object RoomNames {
         }
     }
 
+    /**
+     * What to search the people pages for to find the office with this MazeMap identifier, or
+     * nothing if it isn't one: "NH107" for "HCNH107". The site won't match "3045" to "C3045", so
+     * Carré takes both spellings, the common one first. Room codes can repeat across buildings,
+     * so results still have to be checked with [officeIdentifier].
+     */
+    fun officeSearchTerms(identifier: String): List<String> {
+        val carreRoom = identifier.removePrefix("CRC")
+        if (carreRoom != identifier) {
+            return if (OFFICE_ROOM.matches(carreRoom)) listOf("C$carreRoom", carreRoom) else emptyList()
+        }
+        val code = OFFICE_BUILDINGS.values.firstOrNull(identifier::startsWith) ?: return emptyList()
+        return listOf(identifier.removePrefix(code)).filter(OFFICE_ROOM::matches)
+    }
+
     private val OFFICE = Regex("""(.+?) ([A-Z]*\d+[A-Z]*)""")
+    private val OFFICE_ROOM = Regex("""[A-Z]*\d+[A-Z]*""")
 
     /**
      * Checked against MazeMap. Carré is handled apart, as its rooms may or may not repeat the "C",

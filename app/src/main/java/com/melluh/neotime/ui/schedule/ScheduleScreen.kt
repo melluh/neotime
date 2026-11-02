@@ -128,17 +128,8 @@ class ScheduleViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.lecturers.load(names) }
     }
 
-    /** Returns false if the profile page couldn't be read. */
-    suspend fun loadLecturerProfile(name: String): Boolean = container.lecturers.loadProfile(name)
-
-    fun lecturerSearchUrl(name: String): String = container.lecturers.searchUrl(name)
-
     /** Returns why [place] can't be shown, or null if the Map tab can open it. */
     suspend fun showOnMap(place: RoomPlace): String? = container.focus.showOnMap(place.name, place.identifier)
-
-    /** Returns why [office] can't be shown, or null if the Map tab can open it. */
-    suspend fun showOfficeOnMap(office: String): String? =
-        container.focus.showOnMap(office, RoomNames.officeIdentifier(office))
 
     fun messageShown() {
         _messages.value = null
@@ -230,6 +221,7 @@ fun ScheduleScreen(container: AppContainer, onOpenPicker: () -> Unit, onOpenSett
         EventSheet(
             event,
             vm,
+            container,
             showLecturerHint = snapshot.source == DataSource.PUBLIC,
             onOpenMap = {
                 selected = null
@@ -282,6 +274,7 @@ private fun EmptyState(onOpenPicker: () -> Unit) {
 private fun EventSheet(
     event: Event,
     vm: ScheduleViewModel,
+    container: AppContainer,
     showLecturerHint: Boolean,
     onOpenMap: () -> Unit,
     onDismiss: () -> Unit,
@@ -327,13 +320,13 @@ private fun EventSheet(
             mapProblem?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
         }
         openedLecturer?.let { name ->
-            LecturerCard(name, lecturers[name]?.on(event), vm, onOpenMap, onDismiss = { openedLecturer = null })
+            LecturerCard(name, lecturers[name]?.on(event), container, onOpenMap, onDismiss = { openedLecturer = null })
         }
     }
 }
 
 @Composable
-private fun LecturerRow(name: String, match: PersonMatch?, onClick: () -> Unit) {
+internal fun LecturerRow(name: String, match: PersonMatch?, onClick: () -> Unit) {
     if (isPlaceholderLecturer(name)) {
         Text(name, style = MaterialTheme.typography.bodyLarge)
         return
@@ -361,7 +354,7 @@ private fun Detail(label: String, value: String) {
 }
 
 @Composable
-private fun DetailLabel(label: String) {
+internal fun DetailLabel(label: String) {
     Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
 }
 

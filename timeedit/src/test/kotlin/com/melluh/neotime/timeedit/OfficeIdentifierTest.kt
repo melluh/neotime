@@ -2,6 +2,7 @@ package com.melluh.neotime.timeedit
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OfficeIdentifierTest {
@@ -28,5 +29,34 @@ class OfficeIdentifierTest {
         assertNull(RoomNames.officeIdentifier("Carré"))
         assertNull(RoomNames.officeIdentifier("Spiegel kantoortuin"))
         assertNull(RoomNames.officeIdentifier("Capitool 15 022"))
+    }
+
+    @Test
+    fun `an office is searched for by its room code alone`() {
+        assertEquals(listOf("NH107"), RoomNames.officeSearchTerms("HCNH107"))
+        assertEquals(listOf("3035"), RoomNames.officeSearchTerms("ZI3035"))
+        assertEquals(listOf("H200"), RoomNames.officeSearchTerms("CIH200"))
+    }
+
+    @Test
+    fun `Carre rooms are searched for in both spellings`() {
+        assertEquals(listOf("C3045", "3045"), RoomNames.officeSearchTerms("CRC3045"))
+    }
+
+    @Test
+    fun `search terms lead back to the same identifier`() {
+        listOf("Zilverling 3035", "Horst Complex ME328", "Ravelijn 1438", "Spiegel 625", "Carré C4641", "Carré 3718")
+            .forEach { office ->
+                val identifier = RoomNames.officeIdentifier(office)!!
+                assertTrue(office, office.substringAfterLast(' ') in RoomNames.officeSearchTerms(identifier))
+            }
+    }
+
+    @Test
+    fun `what can't be an office has no search terms`() {
+        assertEquals(emptyList<String>(), RoomNames.officeSearchTerms("WA200VE"))
+        assertEquals(emptyList<String>(), RoomNames.officeSearchTerms("ZI"))
+        assertEquals(emptyList<String>(), RoomNames.officeSearchTerms("CRC"))
+        assertEquals(emptyList<String>(), RoomNames.officeSearchTerms("ZI-toilets"))
     }
 }

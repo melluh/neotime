@@ -65,10 +65,7 @@ class PeopleDirectory(
 
     /** Finds who is called [name]. Several people means reading each one's profile as well. */
     suspend fun lookup(name: String): PersonLookup {
-        val people = matches(name, parseTiles(download(searchUrl(name)))).map { tile ->
-            val profile = base.newBuilder().addPathSegment(tile.slug).build().toString()
-            PersonMatch(profile, tile.photoUrl, fullName(tile.title) ?: name)
-        }
+        val people = matches(name, parseTiles(download(searchUrl(name)))).map { person(it, fallbackName = name) }
         if (people.size < 2) return PersonLookup(people.singleOrNull())
         return PersonLookup(
             namesakes = coroutineScope {
@@ -77,8 +74,27 @@ class PeopleDirectory(
         )
     }
 
+    /**
+     * Finds who has the room with this MazeMap identifier as their office. Quoted room codes
+     * narrow the search far better than building names do, but it's still looser than an office:
+     * departments turn up too, and a person with two offices is only found by the first one.
+     */
+    suspend fun inRoom(identifier: String): List<PersonMatch> =
+        RoomNames.officeSearchTerms(identifier)
+            .flatMap { parseTiles(download(searchUrl("\"$it\""))) }
+            .filter { tile ->
+                !tile.slug.startsWith(DEPARTMENT_SLUG) && tile.offices.any { RoomNames.officeIdentifier(it) == identifier }
+            }
+            .distinctBy { it.slug }
+            .map { person(it, fallbackName = initialledName(it.title)) }
+
     /** Reads the profile page at [profileUrl], as returned by [lookup]. */
     suspend fun details(profileUrl: String): PersonDetails = parseDetails(download(profileUrl))
+
+    private fun person(tile: Tile, fallbackName: String): PersonMatch {
+        val profile = base.newBuilder().addPathSegment(tile.slug).build().toString()
+        return PersonMatch(profile, tile.photoUrl, fullName(tile.title) ?: fallbackName)
+    }
 
     private suspend fun download(url: String): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).header("User-Agent", TimeEditClient.USER_AGENT).build()
@@ -118,13 +134,23 @@ class PeopleDirectory(
         return "$building $room".trim()
     }
 
-    internal data class Tile(val slug: String, val title: String, val photoUrl: String?)
+    internal data class Tile(
+        val slug: String,
+        val title: String,
+        val photoUrl: String?,
+        val offices: List<String> = emptyList(),
+    )
 
     internal fun parseTiles(html: String): List<Tile> =
         Jsoup.parse(html).select("div.ut-person-tile").mapNotNull { tile ->
             val slug = tile.attr("data-link").takeIf { it.isNotEmpty() } ?: return@mapNotNull null
             val title = tile.selectFirst("h3.ut-person-tile__title")?.text() ?: return@mapNotNull null
-            Tile(slug, title, tile.selectFirst("img.ut-person-tile__image")?.attr("src")?.takeIf { it.isNotEmpty() })
+            Tile(
+                slug,
+                title,
+                tile.selectFirst("img.ut-person-tile__image")?.attr("src")?.takeIf { it.isNotEmpty() },
+                tile.select(".ut-person-tile__location div").map { it.text() },
+            )
         }
 
     /** Requires an exact name match, as the search's own results are only loosely related. */
@@ -155,6 +181,13 @@ class PeopleDirectory(
         return "$given $prefix $surname".trim().replace(WHITESPACE, " ")
     }
 
+    /** "Dijk, T. van" is "T. van Dijk", for when there's no name to search by to fall back on. */
+    private fun initialledName(title: String): String {
+        val parsed = TITLE.matchEntire(title.trim()) ?: return title
+        val (surname, initials, prefix) = parsed.destructured
+        return "$initials $prefix $surname".trim().replace(WHITESPACE, " ")
+    }
+
     /**
      * Compares letters and digits only, because the two sites punctuate differently:
      * "L.J Pronk" is "L.J." and "Arenas-Oude Alink" is "Arenas - Oude Alink" on the people pages.
@@ -165,6 +198,7 @@ class PeopleDirectory(
 
     private companion object {
         val DEFAULT_BASE = "https://people.utwente.nl/".toHttpUrl()
+        const val DEPARTMENT_SLUG = "business/"
 
         /**
          * Surname, initials (sometimes spaced, "R. N. N."), optional prefix ("van den"),

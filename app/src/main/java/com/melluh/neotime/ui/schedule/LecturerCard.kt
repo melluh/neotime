@@ -47,17 +47,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.net.toUri
 import coil3.compose.AsyncImage
+import com.melluh.neotime.AppContainer
 import com.melluh.neotime.data.LecturerEntry
 import com.melluh.neotime.timeedit.RoomNames
 import com.melluh.neotime.ui.theme.NeotimeTheme
 import kotlinx.coroutines.launch
 
-/** A lecturer's contact details, over the appointment they were opened from. */
+/** A lecturer's contact details, over what they were opened from. [name] is [entry]'s key. */
 @Composable
 internal fun LecturerCard(
     name: String,
     entry: LecturerEntry?,
-    vm: ScheduleViewModel,
+    container: AppContainer,
     onOpenMap: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -71,7 +72,7 @@ internal fun LecturerCard(
 
     // The lookup may finish while the card is open, so this also waits for the match
     LaunchedEffect(match?.profileUrl) {
-        failed = !vm.loadLecturerProfile(name)
+        failed = !container.lecturers.loadProfile(name)
         loading = false
     }
 
@@ -98,12 +99,12 @@ internal fun LecturerCard(
             },
             onOffice = { office ->
                 scope.launch {
-                    problem = vm.showOfficeOnMap(office)
+                    problem = container.focus.showOnMap(office, RoomNames.officeIdentifier(office))
                     if (problem == null) onOpenMap()
                 }
             },
             onProfile = {
-                val url = match?.profileUrl ?: vm.lecturerSearchUrl(name)
+                val url = match?.profileUrl ?: container.lecturers.searchUrl(name)
                 context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
             },
         )

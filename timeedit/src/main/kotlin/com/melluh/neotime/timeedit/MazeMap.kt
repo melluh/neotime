@@ -76,6 +76,13 @@ data class MapFeature(
             typeNames.none { type -> type in BACKGROUND_TYPES || type.startsWith("Toilet") } &&
             !CORRIDOR_CODE.matches(title)
 
+    /**
+     * Whether someone may work here. Offices have no type and are titled by their code, unlike
+     * "Kantine" or "Collegezaal WH221", though "VL-101" is one too. Receptions are staffed offices.
+     */
+    val mightBeOffice: Boolean
+        get() = isDestination && ("Reception" in typeNames || (typeNames.isEmpty() && title.orEmpty().none(Char::isLowerCase)))
+
     /** What to call this, if anything. */
     val label: String?
         get() = title?.takeIf { isDestination }?.removePrefix(LECTURE_HALL_PREFIX)

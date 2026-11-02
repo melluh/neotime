@@ -85,6 +85,84 @@ class PeopleDirectoryTest {
         assertEquals("/t.vandijk", server.takeRequest().path)
     }
 
+    private fun results(vararg people: Pair<String, String>) = MockResponse().setBody(
+        people.joinToString("") { (slug, office) ->
+            """<div class="ut-person-tile" data-link="$slug"><h3 class="ut-person-tile__title">${slug.substringAfter('/')}, A.</h3>""" +
+                """<div class="ut-person-tile__location"><div>$office</div></div></div>"""
+        },
+    )
+
+    @Test
+    fun `tiles carry the office shown on a real results page`() {
+        val henk = tiles("search_van_dijk.html").single { it.slug == "h.vandijk" }
+        assertEquals(listOf("Carré C4641"), henk.offices)
+    }
+
+    @Test
+    fun `room search asks for the quoted room code`() = runTest {
+        server.enqueue(MockResponse().setBody("<html></html>"))
+        directory.inRoom("HCNH107")
+        assertEquals("\"NH107\"", server.takeRequest().requestUrl!!.queryParameter("query"))
+    }
+
+    @Test
+    fun `room search finds a real person by the office on their tile`() = runTest {
+        server.enqueue(MockResponse().setBody(Fixtures.read("people/search_van_dijk.html")))
+        server.enqueue(MockResponse().setBody("<html></html>"))
+        val person = directory.inRoom("CRC4641").single()
+        assertEquals(server.url("/h.vandijk").toString(), person.profileUrl)
+        assertEquals("Henk van Dijk", person.displayName)
+        assertNotNull(person.photoUrl)
+    }
+
+    @Test
+    fun `room search keeps only people in that room of that building`() = runTest {
+        server.enqueue(
+            results(
+                "right" to "Zilverling 2035",
+                "other.building" to "Ravelijn 2035",
+                "other.room" to "Zilverling 2036",
+                "building.only" to "Zilverling",
+                "business/abc" to "Zilverling 2035",
+            ),
+        )
+        assertEquals(listOf(server.url("/right").toString()), directory.inRoom("ZI2035").map { it.profileUrl })
+    }
+
+    @Test
+    fun `Carre rooms merge both spellings without doubling anyone`() = runTest {
+        server.enqueue(results("with.c" to "Carré C3045", "both" to "Carré C3045"))
+        server.enqueue(results("without.c" to "Carré 3045", "both" to "Carré C3045"))
+        val people = directory.inRoom("CRC3045").map { it.profileUrl.substringAfterLast('/') }
+        assertEquals(listOf("with.c", "both", "without.c"), people)
+        assertEquals("\"C3045\"", server.takeRequest().requestUrl!!.queryParameter("query"))
+        assertEquals("\"3045\"", server.takeRequest().requestUrl!!.queryParameter("query"))
+    }
+
+    @Test
+    fun `room search names people without a first name by their initials`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """<div class="ut-person-tile" data-link="t.vandijk"><h3 class="ut-person-tile__title">Dijk, T. van</h3>""" +
+                    """<div class="ut-person-tile__location"><div>Zilverling 3035</div></div></div>""",
+            ),
+        )
+        assertEquals("T. van Dijk", directory.inRoom("ZI3035").single().displayName)
+    }
+
+    @Test
+    fun `something that can't be an office searches for nothing`() = runTest {
+        assertEquals(emptyList<PersonMatch>(), directory.inRoom("WA200VE"))
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `a failing room search is an error rather than an empty room`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(500))
+        val failed = runCatching { directory.inRoom("ZI3035") }.exceptionOrNull()
+        assertTrue(failed is IOException)
+    }
+
     @Test
     fun `lookup returns the profile and photo of the one match`() = runTest {
         server.enqueue(MockResponse().setBody(Fixtures.read("people/search_t_van_dijk.html")))

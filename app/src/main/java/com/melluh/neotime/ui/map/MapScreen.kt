@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -59,9 +61,11 @@ import com.melluh.neotime.timeedit.MapEntrance
 import com.melluh.neotime.timeedit.MapFeature
 import com.melluh.neotime.timeedit.MapFloor
 import com.melluh.neotime.timeedit.MapOverrides
+import com.melluh.neotime.timeedit.PersonMatch
 import com.melluh.neotime.timeedit.PoiOverride
 import com.melluh.neotime.timeedit.Room
 import com.melluh.neotime.timeedit.RoomLocation
+import com.melluh.neotime.timeedit.RoomNames
 import com.melluh.neotime.timeedit.StairLinks
 import com.melluh.neotime.timeedit.TIMEEDIT_ZONE
 import com.melluh.neotime.ui.AccountChip
@@ -70,6 +74,9 @@ import com.melluh.neotime.ui.rooms.BAR_HEIGHT
 import com.melluh.neotime.ui.rooms.TimeAxis
 import com.melluh.neotime.ui.rooms.freeNowColor
 import com.melluh.neotime.ui.rooms.roomSummary
+import com.melluh.neotime.ui.schedule.DetailLabel
+import com.melluh.neotime.ui.schedule.LecturerCard
+import com.melluh.neotime.ui.schedule.LecturerRow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -430,6 +437,7 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
             room = tappedRoom,
             // Can briefly still be the room that was open before this one
             day = roomDay?.takeIf { it.room == tappedRoom },
+            container = container,
             onViewInRooms = { room ->
                 tapped = null
                 container.focus.showInRooms(room)
@@ -472,9 +480,22 @@ fun MapScreen(container: AppContainer, onOpenSettings: () -> Unit, onOpenRooms: 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RoomSheet(feature: MapFeature, room: Room?, day: RoomDay?, onViewInRooms: (Room) -> Unit, onDismiss: () -> Unit) {
+private fun RoomSheet(
+    feature: MapFeature,
+    room: Room?,
+    day: RoomDay?,
+    container: AppContainer,
+    onViewInRooms: (Room) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var openedPerson by remember { mutableStateOf<PersonMatch?>(null) }
+    val lecturers by container.lecturers.entries.collectAsStateWithLifecycle()
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Shared offices can list dozens of people
+        Column(
+            Modifier.verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             Text(room?.name ?: feature.label.orEmpty(), style = MaterialTheme.typography.titleLarge)
             if (room != null) {
                 Text(
@@ -484,7 +505,48 @@ private fun RoomSheet(feature: MapFeature, room: Room?, day: RoomDay?, onViewInR
                 )
                 RoomToday(day)
                 Button(onClick = { onViewInRooms(room) }) { Text("View in Rooms") }
+            } else {
+                feature.identifier
+                    ?.takeIf { feature.mightBeOffice && RoomNames.officeSearchTerms(it).isNotEmpty() }
+                    ?.let { identifier -> RoomPeople(identifier, container) { openedPerson = it } }
             }
+        }
+        openedPerson?.let { person ->
+            LecturerCard(
+                person.profileUrl,
+                lecturers[person.profileUrl],
+                container,
+                onOpenMap = onDismiss,
+                onDismiss = { openedPerson = null },
+            )
+        }
+    }
+}
+
+/** Who has this room as their office. "Listed" because plenty of staff don't list an office. */
+@Composable
+private fun RoomPeople(identifier: String, container: AppContainer, onOpen: (PersonMatch) -> Unit) {
+    var searching by remember(identifier) { mutableStateOf(true) }
+    var people by remember(identifier) { mutableStateOf<List<PersonMatch>?>(null) }
+    LaunchedEffect(identifier) {
+        people = container.lecturers.peopleInRoom(identifier)
+        searching = false
+    }
+    Column {
+        DetailLabel("People")
+        val found = people
+        when {
+            !found.isNullOrEmpty() -> found.forEach { person ->
+                LecturerRow(person.displayName.orEmpty(), person) { onOpen(person) }
+            }
+            else -> Text(
+                when {
+                    searching -> "Looking for people…"
+                    found == null -> "Couldn't look up who's listed here"
+                    else -> "Nobody is listed here"
+                },
+                style = MaterialTheme.typography.bodyLarge,
+            )
         }
     }
 }
