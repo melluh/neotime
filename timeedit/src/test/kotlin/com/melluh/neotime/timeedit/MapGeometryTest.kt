@@ -68,6 +68,65 @@ class MapGeometryTest {
         }
     }
 
+    private fun metres(lines: List<WallLine>) =
+        lines.sumOf { (a, b) -> hypot((b.lon - a.lon) * metresPerLon, (b.lat - a.lat) * 110_540.0) }
+
+    private fun square(left: Double, size: Double = 10.0) = listOf(
+        ring(left to 0, left + size to 0, left + size to size, left to size, left to 0),
+    )
+
+    @Test
+    fun `shapes that touch lose the line between them`() {
+        val joined = joinShapes(listOf(square(0.0), square(10.0)))
+        assertEquals("all but the two sides that meet", 60.0, metres(joined.walls), 0.1)
+        assertEquals("counted once from each side", 20.0, metres(joined.seams), 0.1)
+    }
+
+    @Test
+    fun `a sliver between shapes is no wall`() {
+        val joined = joinShapes(listOf(square(0.0), square(10.1)))
+        assertEquals(60.0, metres(joined.walls), 0.1)
+    }
+
+    @Test
+    fun `a real wall between shapes stays`() {
+        val joined = joinShapes(listOf(square(0.0), square(10.3)))
+        assertEquals(80.0, metres(joined.walls), 0.1)
+        assertTrue(joined.seams.isEmpty())
+    }
+
+    @Test
+    fun `shapes drawn the opposite way around join just the same`() {
+        val joined = joinShapes(listOf(square(0.0), square(10.0).map { it.reversed() }))
+        assertEquals(60.0, metres(joined.walls), 0.1)
+    }
+
+    @Test
+    fun `only the part where shapes meet goes`() {
+        // The second one is half as tall, so half of the first one's side is still a wall
+        val joined = joinShapes(listOf(square(0.0), listOf(ring(10 to 0, 15 to 0, 15 to 5, 10 to 5, 10 to 0))))
+        assertEquals(50.0, metres(joined.walls), 0.1)
+    }
+
+    @Test
+    fun `what's inside another shape goes`() {
+        val joined = joinShapes(listOf(square(0.0), listOf(ring(2 to 2, 4 to 2, 4 to 4, 2 to 4, 2 to 2))))
+        assertEquals("just the outer one", 40.0, metres(joined.walls), 0.1)
+    }
+
+    @Test
+    fun `a shape doesn't join with itself`() {
+        // A U whose two arms are only 10 cm apart
+        val u = listOf(ring(0 to 0, 21 to 0, 21 to 10, 10.6 to 10, 10.6 to 1, 10.5 to 1, 10.5 to 10, 0 to 10, 0 to 0))
+        val joined = joinShapes(listOf(u))
+        assertTrue(joined.seams.isEmpty())
+    }
+
+    @Test
+    fun `nothing to join is fine`() {
+        assertTrue(joinShapes(emptyList()).walls.isEmpty())
+    }
+
     @Test
     fun `an ordinary outline is left alone`() {
         val outline = listOf(ring(0 to 0, 10 to 0, 10 to 10, 0 to 10, 0 to 0))

@@ -120,6 +120,48 @@ fun Rings.withoutBridges(): Rings {
     return if (rings.all { distance(it.first(), it.last()) <= MAX_MOUTH_WIDTH_METRES }) rings else unfolded
 }
 
+/** A stretch of wall, or of the seam where a wall would've been. */
+typealias WallLine = Pair<GeoPoint, GeoPoint>
+
+/** Shapes that run into each other. [walls] goes around them, and [seams] is where they meet. */
+class JoinedShapes(val walls: List<WallLine>, val seams: List<WallLine>)
+
+/**
+ * Treats [shapes] as one space wherever they're closer than a wall is thick. MazeMap cuts corridors
+ * into pieces, with anything up to 15 cm between them, and that's no wall. What's left inside
+ * another shape goes too, as some of the pieces overlap.
+ */
+fun joinShapes(shapes: List<Rings>): JoinedShapes {
+    val lonScale = cos(Math.toRadians(shapes.firstNotNullOfOrNull { it.firstOrNull()?.firstOrNull() }?.lat ?: return JoinedShapes(emptyList(), emptyList()))) * METRES_PER_DEGREE_LON
+
+    class Owned(val owner: Int, val edge: Edge, val reversed: Edge)
+
+    val edges = shapes.flatMapIndexed { owner, rings ->
+        rings.filter { it.isNotEmpty() }.flatMap { ring ->
+            val closed = if (ring.first() != ring.last()) ring + ring.first() else ring
+            closed.zipWithNext { a, b -> Edge(a, b, lonScale) }.filter { it.length > 0 }
+        }.map { Owned(owner, it, Edge(it.to, it.from, lonScale)) }
+    }
+
+    fun longEnough(piece: WallLine) = Edge(piece.first, piece.second, lonScale).length >= SAME_POINT_METRES
+
+    val walls = mutableListOf<WallLine>()
+    val seams = mutableListOf<WallLine>()
+    for (current in edges) {
+        val joined = edges.filter { it.owner != current.owner }.mapNotNull {
+            // Which way around a shape's ring goes is up to whoever drew it
+            current.edge.overlapWith(it.edge) ?: current.edge.overlapWith(it.reversed)
+        }
+        joined.mapTo(seams) { current.edge.piece(it) }
+        for (piece in current.edge.piecesOutside(joined).filter(::longEnough)) {
+            val middle = GeoPoint((piece.first.lon + piece.second.lon) / 2, (piece.first.lat + piece.second.lat) / 2)
+            val inside = shapes.indices.any { it != current.owner && middle in shapes[it] }
+            if (inside) seams += piece else walls += piece
+        }
+    }
+    return JoinedShapes(walls, seams)
+}
+
 /** Takes out the places where a ring doubles straight back on itself, leaving nothing behind. */
 private fun List<GeoPoint>.withoutFolds(distance: (GeoPoint, GeoPoint) -> Double): List<GeoPoint> {
     val kept = mutableListOf<GeoPoint>()
@@ -167,6 +209,8 @@ private class Edge(val from: GeoPoint, val to: GeoPoint, lonScale: Double) {
             other.distanceTo(x(end), y(end)) <= MAX_BRIDGE_WIDTH_METRES
         return if (close) start..end else null
     }
+
+    fun piece(range: ClosedFloatingPointRange<Double>): Pair<GeoPoint, GeoPoint> = at(range.start) to at(range.endInclusive)
 
     fun piecesOutside(ranges: List<ClosedFloatingPointRange<Double>>): List<Pair<GeoPoint, GeoPoint>> {
         val pieces = mutableListOf<Pair<GeoPoint, GeoPoint>>()

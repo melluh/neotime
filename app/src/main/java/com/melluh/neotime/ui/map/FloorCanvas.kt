@@ -51,7 +51,9 @@ import com.melluh.neotime.timeedit.MapFeature
 import com.melluh.neotime.timeedit.MapFloor
 import com.melluh.neotime.timeedit.MapProjection
 import com.melluh.neotime.timeedit.Rings
+import com.melluh.neotime.timeedit.WallLine
 import com.melluh.neotime.timeedit.contains
+import com.melluh.neotime.timeedit.joinShapes
 import com.melluh.neotime.timeedit.withoutBridges
 import kotlin.math.abs
 import kotlin.math.max
@@ -65,6 +67,9 @@ private const val FOCUS_ZOOM = 5f
 /** Marks bookable rooms over whatever their layer draws them in. */
 private const val BOOKABLE_ALPHA = 0.25f
 private const val FOCUS_ALPHA = 0.6f
+
+/** Each side of a gap between hallways gets this, so together they cover the widest gap that's joined. */
+private const val SEAM_WIDTH_METRES = 0.45f
 
 private const val ENTRANCE_DP = 22
 private const val ENTRANCE_ICON_SCALE = 0.7f
@@ -122,7 +127,16 @@ private class BuildingFrame private constructor(private val projection: MapProje
     }
 }
 
-private class FloorGeometry(val outline: Path?, val shapes: List<Shape>) {
+private class FloorGeometry(
+    val outline: Path?,
+    val shapes: List<Shape>,
+    val hallwayWalls: Path,
+    val hallwaySeams: Path,
+) {
+    val belowHallways = shapes.filter { it.layer < Layer.HALLWAY }
+    val hallways = shapes.filter { it.layer == Layer.HALLWAY }
+    val aboveHallways = shapes.filter { it.layer > Layer.HALLWAY }
+
     companion object {
         fun of(frame: BuildingFrame, floor: MapFloor, features: List<MapFeature>): FloorGeometry {
             fun path(rings: Rings) = Path().apply {
@@ -160,9 +174,21 @@ private class FloorGeometry(val outline: Path?, val shapes: List<Shape>) {
                 .sortedWith(compareBy({ it.second.layer }, { -it.first }))
                 .map { it.second }
 
+            fun lines(lines: List<WallLine>) = Path().apply {
+                lines.forEach { (from, to) ->
+                    val start = frame.project(from)
+                    val end = frame.project(to)
+                    moveTo(start.x, start.y)
+                    lineTo(end.x, end.y)
+                }
+            }
+
+            val joined = joinShapes(shapes.filter { it.layer == Layer.HALLWAY }.map { it.feature.rings.orEmpty() })
             return FloorGeometry(
                 outline = floor.outline?.let { path(it.withoutBridges()) },
                 shapes = shapes,
+                hallwayWalls = lines(joined.walls),
+                hallwaySeams = lines(joined.seams),
             )
         }
     }
@@ -226,7 +252,6 @@ fun FloorCanvas(
     }
     val wall = colors.outline
     val accent = colors.primary
-    val floorFill = colors.surfaceVariant
     val entranceIcon = rememberVectorPainter(Icons.AutoMirrored.Filled.ExitToApp)
     val directionIcon = rememberVectorPainter(Icons.AutoMirrored.Filled.ArrowForward)
     val onAccent = colors.onPrimary
@@ -290,11 +315,28 @@ fun FloorCanvas(
         }) {
             // Strokes go through the scale too, so they're undone to stay thin at any zoom
             val line = Stroke(width = 1.dp.toPx() / scale)
-            geometry.outline?.let { drawPath(it, floorFill) }
-            geometry.shapes.forEach { shape ->
+            fun fill(shape: Shape) {
                 drawPath(shape.path, fills.getValue(shape.layer))
                 if (shape.feature.id in bookable) drawPath(shape.path, accent.copy(alpha = BOOKABLE_ALPHA))
                 if (shape.feature.id == focused) drawPath(shape.path, accent.copy(alpha = FOCUS_ALPHA))
+            }
+
+            // Whatever the rooms then leave uncovered is wall, thick as it really is
+            geometry.outline?.let { drawPath(it, wall) }
+            geometry.belowHallways.forEach { shape ->
+                fill(shape)
+                drawPath(shape.path, wall, style = line)
+            }
+            geometry.hallways.forEach(::fill)
+            // In metres, as the seams are: this has to cover them whatever the zoom
+            drawPath(
+                geometry.hallwaySeams,
+                fills.getValue(Layer.HALLWAY),
+                style = Stroke(width = max(SEAM_WIDTH_METRES, line.width)),
+            )
+            drawPath(geometry.hallwayWalls, wall, style = line)
+            geometry.aboveHallways.forEach { shape ->
+                fill(shape)
                 drawPath(shape.path, wall, style = line)
             }
             geometry.outline?.let { drawPath(it, wall, style = line) }
