@@ -108,6 +108,12 @@ class ScheduleRepository(
         }
     }
 
+    /** Hides [parts] in one write. */
+    suspend fun hideParts(parts: Collection<CoursePart>) {
+        if (parts.isEmpty()) return
+        dataStore.edit { prefs -> writeHiddenParts(prefs, hiddenPartsIn(prefs) + parts) }
+    }
+
     private fun hiddenPartsIn(prefs: Preferences): Set<CoursePart> =
         prefs[HIDDEN_PARTS]?.let { runCatching { json.decodeFromString(HIDDEN_PARTS_SERIALIZER, it) }.getOrNull() }.orEmpty()
 
@@ -120,6 +126,15 @@ class ScheduleRepository(
      * can't overwrite a newer result, and a selection edited meanwhile is fetched before this returns.
      */
     suspend fun refresh(): RefreshResult = refreshLock.withLock { fetchCurrentSelection() }
+
+    /**
+     * Like [refresh], but skips the fetch when the cache already matches the selection, so waiting
+     * on a refresh someone else started doesn't download the schedule a second time.
+     */
+    suspend fun ensureFetched(): RefreshResult = refreshLock.withLock {
+        if (selection.first().map { it.id }.toSet() == _snapshot.value.objects.toSet()) RefreshResult.Ok
+        else fetchCurrentSelection()
+    }
 
     private suspend fun fetchCurrentSelection(): RefreshResult {
         _refreshing.value = true

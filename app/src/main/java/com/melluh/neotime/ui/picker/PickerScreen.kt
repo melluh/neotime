@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -45,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,10 +55,13 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.melluh.neotime.AppContainer
 import com.melluh.neotime.auth.SessionState
+import com.melluh.neotime.data.RefreshResult
 import com.melluh.neotime.data.Registration
 import com.melluh.neotime.data.RegistrationsState
+import com.melluh.neotime.timeedit.CoursePart
 import com.melluh.neotime.timeedit.ObjectRef
 import com.melluh.neotime.timeedit.ObjectType
+import com.melluh.neotime.timeedit.courseParts
 import com.melluh.neotime.ui.settings.OSIRIS_CONSENT_EXPLANATION
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,6 +70,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val MIN_QUERY_LENGTH = 2
@@ -111,13 +118,59 @@ class PickerViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun toggle(ref: ObjectRef) = viewModelScope.launch {
-        if (selection.value.any { it.id == ref.id }) container.schedule.remove(ref) else container.schedule.add(ref)
+        val before = selection.value
+        if (before.any { it.id == ref.id }) {
+            container.schedule.remove(ref)
+        } else {
+            container.schedule.add(ref)
+            askForParts(listOf(ref), before)
+        }
     }
 
     fun addAll(refs: List<ObjectRef>) {
-        viewModelScope.launch { container.schedule.addAll(refs) }
+        viewModelScope.launch {
+            val before = selection.value
+            container.schedule.addAll(refs)
+            askForParts(refs, before)
+        }
+    }
+
+    private val queuedPrompts = MutableStateFlow<List<PartsPrompt>>(emptyList())
+
+    /** The next added course to ask about. Dropped once the course is off the schedule again. */
+    internal val partsPrompt: StateFlow<PartsPrompt?> = combine(queuedPrompts, selection) { prompts, sel ->
+        prompts.firstOrNull { prompt -> sel.any { it.id == prompt.ref.id } }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /**
+     * Parts only show up in the schedule's events, so this waits for the fetch that includes [added].
+     * A course whose code was already on the schedule through another block keeps the choice made then.
+     */
+    private suspend fun askForParts(added: List<ObjectRef>, before: List<ObjectRef>) {
+        val courses = added
+            .filter { it.type == ObjectType.COURSE && before.none { b -> b.id == it.id } }
+            .mapNotNull { ref -> ref.courseCode?.let { ref to it } }
+            .filter { (_, code) -> before.none { it.courseCode == code } }
+            .distinctBy { (_, code) -> code }
+        if (courses.isEmpty()) return
+        if (container.schedule.ensureFetched() !is RefreshResult.Ok) return
+        val events = container.schedule.snapshot.value.events
+        val prompts = courses
+            .map { (ref, code) -> PartsPrompt(ref, code, courseParts(code, events).names) }
+            .filter { it.parts.isNotEmpty() }
+        queuedPrompts.update { it + prompts }
+    }
+
+    /** Takes the parts the user left unticked off the schedule. */
+    internal fun answer(prompt: PartsPrompt, shown: Set<String>) {
+        queuedPrompts.update { it - prompt }
+        val hidden = prompt.parts.filterNot { it in shown }.map { CoursePart(prompt.code, it) }
+        container.scope.launch { container.schedule.hideParts(hidden) }
     }
 }
+
+/** A course just added that has parts, for the user to choose which of them to keep. */
+internal data class PartsPrompt(val ref: ObjectRef, val code: String, val parts: List<String>)
 
 private val PICKABLE = listOf(ObjectType.STUDENT_SET, ObjectType.COURSE, ObjectType.STUDY_PROGRAMME)
 
@@ -138,6 +191,9 @@ fun PickerScreen(container: AppContainer, onBack: () -> Unit) {
     var showDeclinedNotice by rememberSaveable { mutableStateOf(false) }
 
     if (showDeclinedNotice) DeclinedNotice(onDismiss = { showDeclinedNotice = false })
+
+    val partsPrompt by vm.partsPrompt.collectAsStateWithLifecycle()
+    partsPrompt?.let { prompt -> PartsDialog(prompt, onDone = { shown -> vm.answer(prompt, shown) }) }
 
     LaunchedEffect(session is SessionState.LoggedOut, osirisAllowed) {
         if (osirisAllowed == true) vm.refreshRegistrations()
@@ -247,6 +303,40 @@ private fun ToggleButton(added: Boolean, onClick: () -> Unit) {
     IconButton(onClick = onClick) {
         Icon(if (added) Icons.Filled.Check else Icons.Filled.Add, contentDescription = if (added) "Remove" else "Add")
     }
+}
+
+/** Everything starts ticked; closing the dialog any way keeps what's ticked at that point. */
+@Composable
+private fun PartsDialog(prompt: PartsPrompt, onDone: (shown: Set<String>) -> Unit) {
+    var shown by rememberSaveable(prompt.ref.id) { mutableStateOf(prompt.parts.toSet()) }
+    AlertDialog(
+        onDismissRequest = { onDone(shown) },
+        title = { Text(prompt.ref.name.substringBefore(',')) },
+        text = {
+            Column {
+                Text("Which parts of this course do you want on your schedule?")
+                LazyColumn(Modifier.padding(top = 8.dp)) {
+                    items(prompt.parts, key = { it }) { part ->
+                        val checked = part in shown
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .toggleable(value = checked, role = Role.Checkbox) {
+                                    shown = if (it) shown + part else shown - part
+                                },
+                        ) {
+                            Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.padding(12.dp))
+                            Text(part, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onDone(shown) }) { Text("Done") }
+        },
+    )
 }
 
 @Composable

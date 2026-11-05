@@ -110,16 +110,19 @@ class ScheduleViewModel(private val container: AppContainer) : ViewModel() {
                 .distinctUntilChanged { a, b -> a.first == b.first }
                 .collect { (ids, snap) ->
                     val stale = snap.fetchedAt?.let { Duration.between(it, Instant.now()) > MAX_AGE } ?: true
-                    if (ids != snap.objects.sorted() || stale) refresh()
+                    if (stale) refresh() else if (ids != snap.objects.sorted()) refresh(onlyIfOutdated = true)
                 }
         }
     }
 
-    /** Skipping is safe: a running refresh picks up selection changes before it finishes. */
-    fun refresh() {
+    /**
+     * Skipping is safe: a running refresh picks up selection changes before it finishes.
+     * [onlyIfOutdated] skips the fetch if one that finished while this waited already covers the selection.
+     */
+    fun refresh(onlyIfOutdated: Boolean = false) {
         if (refreshing.value) return
         viewModelScope.launch {
-            val result = container.schedule.refresh()
+            val result = if (onlyIfOutdated) container.schedule.ensureFetched() else container.schedule.refresh()
             if (result is RefreshResult.Failed) _messages.value = result.message
         }
     }
