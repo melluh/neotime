@@ -28,7 +28,7 @@ import kotlin.math.sign
  * one on top fades, over a few frames, and the one below stays opaque the whole time.
  */
 
-private val SETTINGS_ROUTES = setOf("settings", "privacy", "about", "picker", "picker/add", "picker/course/{id}")
+private val SETTINGS_ROUTES = setOf("settings", "privacy", "about", "licenses", "picker", "picker/add", "picker/course/{id}")
 
 private const val DURATION_MS = 450
 private const val ENTER_FADE_DELAY_MS = 50

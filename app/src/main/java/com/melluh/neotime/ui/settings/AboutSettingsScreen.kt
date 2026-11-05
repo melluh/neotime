@@ -2,13 +2,17 @@ package com.melluh.neotime.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -18,12 +22,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import com.melluh.neotime.BuildConfig
 
+private const val AUTHOR_EMAIL = "melle@vxl.sh"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutSettingsScreen(onBack: () -> Unit) {
+fun AboutSettingsScreen(onBack: () -> Unit, onOpenLicenses: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -44,24 +57,74 @@ fun AboutSettingsScreen(onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Column(
-                Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text("neotime", style = MaterialTheme.typography.headlineMedium)
-                Text("Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    "The way this app interacts with external services may violate their terms of service. " +
-                        "For private use only. Use at your own risk.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row {
+                        Text(
+                            "neotime",
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.weight(1f).alignByBaseline(),
+                        )
+                        Text(
+                            "Version ${BuildConfig.VERSION_NAME}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.alignByBaseline(),
+                        )
+                    }
+                    Text(
+                        "neotime is an unofficial app and is not affiliated with the University of Twente or TimeEdit. " +
+                            "The way it accesses external services may not comply with their terms of service. " +
+                            "It is intended for personal use only, and you use it at your own risk.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Author", style = MaterialTheme.typography.titleMedium)
-                Text("Melle Moerkerk", style = MaterialTheme.typography.bodyLarge)
-                Text("melle@vxl.sh", style = MaterialTheme.typography.bodyMedium)
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Contact", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "For questions or feedback, please contact the author:",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Column {
+                        Text("Melle Moerkerk", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        val linkColor = MaterialTheme.colorScheme.primary
+                        Text(
+                            buildAnnotatedString {
+                                withLink(
+                                    LinkAnnotation.Url(
+                                        "mailto:$AUTHOR_EMAIL",
+                                        TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)),
+                                    ),
+                                ) {
+                                    append(AUTHOR_EMAIL)
+                                }
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
             }
+
+            SettingsNavigationBlock(
+                items = listOf(
+                    SettingsNavigationItem(
+                        title = "Open source licenses",
+                        onClick = onOpenLicenses,
+                        leadingIcon = {
+                            Icon(
+                                Icons.AutoMirrored.Filled.List,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        },
+                    ),
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

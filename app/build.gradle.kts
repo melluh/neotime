@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.aboutlibraries.android)
 }
 
 android {
@@ -33,6 +34,14 @@ android {
     }
 }
 
+aboutLibraries {
+    // Don't make network requests during the build; licence info comes from the POM files.
+    offlineMode = true
+    collect {
+        filterVariants.add("release")
+    }
+}
+
 dependencies {
     implementation(project(":timeedit"))
 
@@ -51,6 +60,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.avif)
+    implementation(libs.aboutlibraries.compose.m3)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

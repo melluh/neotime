@@ -76,6 +76,7 @@ import com.melluh.neotime.ui.schedule.ScheduleScreen
 import com.melluh.neotime.ui.settings.SettingsScreen
 import com.melluh.neotime.ui.settings.PrivacySettingsScreen
 import com.melluh.neotime.ui.settings.AboutSettingsScreen
+import com.melluh.neotime.ui.settings.LicensesScreen
 import com.melluh.neotime.ui.theme.NeotimeTheme
 import kotlinx.coroutines.delay
 
@@ -147,7 +148,13 @@ fun NeotimeRoot(container: AppContainer) {
                 )
             }
             composable("privacy") { PrivacySettingsScreen(container, onBack = { nav.popBackStack() }) }
-            composable("about") { AboutSettingsScreen(onBack = { nav.popBackStack() }) }
+            composable("about") {
+                AboutSettingsScreen(
+                    onBack = { nav.popBackStack() },
+                    onOpenLicenses = { nav.navigate("licenses") },
+                )
+            }
+            composable("licenses") { LicensesScreen(onBack = { nav.popBackStack() }) }
             composable("login") { LoginScreen(container, onDone = { nav.popBackStack() }) }
         }
         if (route != "login" && !(route == "settings" && session is SessionState.NeedsInteractiveLogin)) {

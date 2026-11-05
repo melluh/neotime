@@ -87,6 +87,9 @@ class NeotimeApp : Application(), SingletonImageLoader.Factory {
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader = ImageLoader.Builder(context)
-        .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.anonymousHttp })) }
+        .components {
+            add(OkHttpNetworkFetcherFactory(callFactory = { container.anonymousHttp }))
+            add(LibavifDecoder.Factory())
+        }
         .build()
 }
