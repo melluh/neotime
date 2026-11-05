@@ -33,7 +33,7 @@ class SectionsTest {
             ),
         )
         assertEquals(listOf("2026, 1A"), sections.map { it.title })
-        assertEquals(listOf("1.5", "2.5"), sections.single().refs.map { it.id })
+        assertEquals(listOf("1.5", "2.5"), sections.single().courses.map { it.ref.id })
     }
 
     @Test
@@ -51,6 +51,19 @@ class SectionsTest {
     fun `courses without a period come last`() {
         val titles = titles(ObjectRef("1.5", "Introduction to Programming. 202500342"), ObjectRef("2.5", "Get Data, 202500215, 2026, 1A"))
         assertEquals(listOf("2026, 1A", "Other"), titles)
+    }
+
+    @Test
+    fun `course info separates name, code and period in either name order`() {
+        val first = courseInfo(ObjectRef("1.5", "Calculus 1 for AT, 202600368, 1A, 2026"))
+        assertEquals("Calculus 1 for AT", first.name)
+        assertEquals("202600368", first.code)
+        assertEquals(Period("2026", "1A"), first.period)
+
+        val second = courseInfo(ObjectRef("2.5", "Get Data, 202500215, 2026, 1A"))
+        assertEquals("Get Data", second.name)
+        assertEquals("202500215", second.code)
+        assertEquals(Period("2026", "1A"), second.period)
     }
 
     @Test

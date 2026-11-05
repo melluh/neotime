@@ -71,9 +71,16 @@ internal fun partsSummary(code: String?, parts: List<String>, hidden: Set<Course
     return "$shown of ${parts.size} ${if (parts.size == 1) "part" else "parts"} shown"
 }
 
-internal data class Section(val title: String, val refs: List<ObjectRef>)
+internal data class CourseInfo(
+    val ref: ObjectRef,
+    val name: String,
+    val code: String?,
+    val period: Period?,
+)
 
-private data class Period(val year: String, val block: String?) {
+internal data class Section(val title: String, val courses: List<CourseInfo>)
+
+internal data class Period(val year: String, val block: String?) {
     val label: String get() = listOfNotNull(year, block).joinToString(", ")
 }
 
@@ -81,23 +88,32 @@ private val YEAR = Regex("""20\d\d""")
 private val COURSE_CODE = Regex("""\d{9,}""")
 
 /** TimeEdit puts the year and block last, in either order: "Calculus, 202001212, 2026, 1A" or "..., 1A, 2026". */
-private fun periodOf(ref: ObjectRef): Period? {
-    val tail = ref.name.split(',').map { it.trim() }.drop(1).takeLast(2)
-    val year = tail.lastOrNull(YEAR::matches) ?: return null
-    return Period(year, tail.firstOrNull { it != year && !COURSE_CODE.matches(it) })
+internal fun courseInfo(ref: ObjectRef): CourseInfo {
+    val parts = ref.name.split(',').map { it.trim() }
+    val tail = parts.drop(1).takeLast(2)
+    val year = tail.lastOrNull(YEAR::matches)
+    return CourseInfo(
+        ref = ref,
+        name = parts.first(),
+        code = parts.drop(1).firstOrNull(COURSE_CODE::matches),
+        period = year?.let {
+            Period(it, tail.firstOrNull { part -> part != it && !COURSE_CODE.matches(part) })
+        },
+    )
 }
 
 /** Groups first, then courses by period, newest first; courses without a period come last. */
 internal fun sections(selection: List<ObjectRef>): List<Section> {
-    val (groups, courses) = selection.partition { it.type == ObjectType.STUDENT_SET || it.type == ObjectType.STUDY_PROGRAMME }
-    val byPeriod = courses.groupBy(::periodOf)
+    val (groups, courses) = selection.map(::courseInfo)
+        .partition { it.ref.type == ObjectType.STUDENT_SET || it.ref.type == ObjectType.STUDY_PROGRAMME }
+    val byPeriod = courses.groupBy { it.period }
     val periods = byPeriod.keys.filterNotNull()
         .sortedWith(compareByDescending<Period> { it.year }.thenByDescending { it.block })
     return buildList {
         add(Section("Groups", groups))
         periods.forEach { add(Section(it.label, byPeriod.getValue(it))) }
         add(Section("Other", byPeriod[null].orEmpty()))
-    }.filter { it.refs.isNotEmpty() }
+    }.filter { it.courses.isNotEmpty() }
 }
 
 /** The courses and groups on the current schedule; adding happens on [PickerScreen]. */
@@ -139,31 +155,31 @@ fun CoursesScreen(container: AppContainer, onBack: () -> Unit, onAdd: () -> Unit
                             modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp),
                         )
                     }
-                    items(section.refs, key = { it.id }) { ref ->
-                        val name = ref.name.substringBefore(',')
+                    items(section.courses, key = { it.ref.id }) { course ->
+                        val ref = course.ref
                         val row = partRows[ref.id]
                         val editable = row?.editable == true
                         val details = listOfNotNull(
-                            ref.name.substringAfter(',', "").trim().takeIf { it.isNotEmpty() },
+                            course.code,
                             row?.summary,
                         ).joinToString(" · ").takeIf { it.isNotEmpty() }
                         ListItem(
-                            headlineContent = { Text(name) },
+                            headlineContent = { Text(course.name) },
                             supportingContent = details?.let { { Text(it) } },
                             trailingContent = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     if (editable) {
                                         IconButton(onClick = { onOpenCourse(ref) }) {
-                                            Icon(Icons.Filled.Edit, contentDescription = "Edit parts of $name")
+                                            Icon(Icons.Filled.Edit, contentDescription = "Edit parts of ${course.name}")
                                         }
                                     }
                                     IconButton(onClick = { vm.remove(ref) }) {
-                                        Icon(Icons.Filled.Close, contentDescription = "Remove $name")
+                                        Icon(Icons.Filled.Close, contentDescription = "Remove ${course.name}")
                                     }
                                 }
                             },
                             modifier = if (editable) {
-                                Modifier.clickable(onClickLabel = "Edit parts of $name") { onOpenCourse(ref) }
+                                Modifier.clickable(onClickLabel = "Edit parts of ${course.name}") { onOpenCourse(ref) }
                             } else {
                                 Modifier
                             },

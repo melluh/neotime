@@ -3,7 +3,6 @@ package com.melluh.neotime.ui.map
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -254,17 +253,17 @@ fun FloorCanvas(
     }
 
     val colors = MaterialTheme.colorScheme
-    val dark = isSystemInDarkTheme()
-    val fills = remember(colors, dark) {
+    val fills = remember(colors) {
         mapOf(
             Layer.AREA to colors.surfaceContainer,
             Layer.HALLWAY to colors.surfaceContainerLowest,
             Layer.ROOM to colors.surfaceContainerHighest,
             Layer.LECTURE_HALL to colors.primaryContainer,
-            Layer.TOILET to if (dark) TOILET_DARK else TOILET_LIGHT,
-            // Green whatever the theme: the way up or down is what you scan a floor for
-            Layer.LIFT to if (dark) VERTICAL_DARK else VERTICAL_LIGHT,
-            Layer.STAIRS to if (dark) VERTICAL_DARK else VERTICAL_LIGHT,
+            // Only a shade off the rooms: their icons are what says what these are, so that colour
+            // is left for the rooms you might go to
+            Layer.TOILET to colors.outlineVariant,
+            Layer.LIFT to colors.outlineVariant,
+            Layer.STAIRS to colors.outlineVariant,
         )
     }
     val wall = colors.outline
@@ -537,10 +536,4 @@ private const val FLOOR_ICON_DP = 18
 private const val CHIP_PADDING_X_DP = 6
 private const val CHIP_PADDING_Y_DP = 2
 private const val CHIP_CORNER_DP = 6
-private val VERTICAL_LIGHT = Color(0xFF9AD9A8)
-private val VERTICAL_DARK = Color(0xFF2E6B45)
-
-/** Not the theme's blue, which is what lecture halls are. */
-private val TOILET_LIGHT = Color(0xFF8FCDF2)
-private val TOILET_DARK = Color(0xFF28618A)
 private const val NEEDLE_WIDTH = 0.4f
